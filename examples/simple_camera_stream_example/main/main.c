@@ -120,7 +120,7 @@ static void wifi_init_softap(void) {
             .password = ESP_WIFI_PASS,
             .max_connection = MAX_STA_CONN,
 #ifdef CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT
-            .authmode = WIFI_AUTH_WPA3_PSK,
+            .authmode = WIFI_AUTH_WPA2_WPA3_PSK,
             .sae_pwe_h2e = WPA3_SAE_PWE_BOTH,
 #else /* CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT */
             .authmode = WIFI_AUTH_WPA2_PSK,
