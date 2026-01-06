@@ -19,12 +19,14 @@ typedef enum {
     OV2640_PID = 0x26,
     OV3660_PID = 0x3660,
     OV5640_PID = 0x5640,
+    NT99141_PID = 0x1410,
 } camera_pid_t;
 
 typedef enum {
     CAMERA_OV2640,
     CAMERA_OV3660,
     CAMERA_OV5640,
+    CAMERA_NT99141,
     CAMERA_MODEL_MAX,
     CAMERA_NONE,
 } camera_model_t;
@@ -33,6 +35,7 @@ typedef enum {
     OV2640_SCCB_ADDR   = 0x30,// 0x60 >> 1
     OV3660_SCCB_ADDR   = 0x3C,// 0x78 >> 1
     OV5640_SCCB_ADDR   = 0x3C,// 0x78 >> 1
+    NT99141_SCCB_ADDR  = 0x2A,// 0x54 >> 1
 } camera_sccb_addr_t;
 
 typedef enum {
@@ -58,11 +61,11 @@ typedef enum {
     FRAMESIZE_320X320,  // 320x320
     FRAMESIZE_CIF,      // 400x296
     FRAMESIZE_HVGA,     // 480x320
+    FRAMESIZE_640X360,  // 640x360
     FRAMESIZE_VGA,      // 640x480
     FRAMESIZE_SVGA,     // 800x600
     FRAMESIZE_XGA,      // 1024x768
     FRAMESIZE_HD,       // 1280x720
-    FRAMESIZE_1200X800, // 1200x800
     FRAMESIZE_SXGAM,    // 1280x960
     FRAMESIZE_SXGA,     // 1280x1024
     FRAMESIZE_UXGA,     // 1600x1200

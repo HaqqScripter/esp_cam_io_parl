@@ -14,9 +14,17 @@
  * @brief PCLK edge in esp_cam_io_parl configuration
  */
 typedef enum {
-    ESP_CAM_IO_PARL_PCLK_NEG, /*!< Sample PCLK data on negative edge */
     ESP_CAM_IO_PARL_PCLK_POS, /*!< Sample PCLK data on positive edge */
-} esp_cam_io_parl_pclk_edge;
+    ESP_CAM_IO_PARL_PCLK_NEG, /*!< Sample PCLK data on negative edge */
+} esp_cam_io_parl_pclk_edge_t;
+
+/**
+ * @brief Sampling mode for esp_cam_io_parl
+ */
+typedef enum {
+    ESP_CAM_IO_PARL_BUFFER, /*!< Fill the buffer with the image data (RAM intensive and simple to process the image data) */
+    ESP_CAM_IO_PARL_STREAM, /*!< Fills each buffer node with a part of the image data (Less flexibility and RAM usage) */
+} esp_cam_io_parl_sampling_mode_t;
 
 /**
  * @brief esp_cam_io_parl configuration
@@ -26,7 +34,10 @@ typedef struct {
     size_t queue_frames; /*!< Number of frames to be queued */
 
     gpio_num_t pclk_io; /*!< PCLK GPIO pin */
-    uint32_t pclk_sample_edge : 1; /*!< Sample the data either on negative edge, or positive edge */
+    uint32_t pclk_hz; /*!< PCLK frequency, in Hz*/
+    esp_cam_io_parl_pclk_edge_t pclk_sample_edge : 1; /*!< Sample the data either on negative edge, or positive edge */
+
+    esp_cam_io_parl_sampling_mode_t sampling_mode : 1; /*!< Sample method for flexibility */
 
     gpio_num_t vsync_io; /*!< VSYNC GPIO pin (Not implemented) */
     gpio_num_t de_io; /*!< DE (HREF) GPIO pin, set to -1 if not used. */
@@ -55,22 +66,37 @@ typedef struct {
 } esp_cam_io_parl_trans_t;
 
 /**
- * @brief esp_cam_io_parl handle struct
+ * @brief Received chunked transaction buffer from esp_cam_io_parl
  */
 typedef struct {
+    uint8_t buffer[10384]; /*!< Received frame buffer */
+    uint32_t length; /*!< Frame buffer length */
+    uint32_t total_bytes; /*!< Total bytes received */
+    uint32_t start_marker : 1; /*!< Implies that the current buffer is start of image */
+    uint32_t end_marker : 1; /*!< Implies that the current buffer is end of image */
+    //uint32_t has_start_marker : 1; /*!< Implies that the overall buffer has start of image marker */
+    //uint32_t has_end_marker : 1; /*!< Implies that the overall buffer has end of image marker */
+} esp_cam_io_parl_stream_trans_t;
+
+/**
+ * @brief esp_cam_io_parl handle struct
+ */
+typedef struct esp_cam_io_parl_t {
     uint32_t alloc_size; /*!< Frame allocation size */
     uint32_t alloc_heap_caps; /*!< Frame allocation heap caps */
-    uint16_t payload_size; /*!< DMA buffer size */
+    uint32_t payload_size; /*!< DMA buffer size */
     uint8_t *payload; /*!< DMA buffer */
     uint32_t use_soft_delimiter : 1; /*!< Is using PARLIO RX software delimiter */
     esp_cam_io_parl_config_t config;
     volatile struct {
         esp_cam_io_parl_trans_t frame; /*!< Frame buffer data */
-        uint8_t last_byte; /*!< Last byte captured */
-        uint32_t index; /*!< Index of the frame */
-        uint32_t captured : 1; /*!< Frame is captured */
+        esp_cam_io_parl_stream_trans_t *streamed_frame; /*!< Streamed frame buffer data */
+        uint8_t previous_byte; /*!< Last byte captured */
+        size_t index; /*!< Index of the frame */
+        int state; /*!< Frame capture state */
     } info; /*!< Frame buffer info */
     QueueHandle_t queue_handle; /*!< Queue handle for receiving frames */
+    QueueHandle_t queue_stream_handle; /*!< Queue handle for receiving streamed frames */
     parlio_rx_unit_handle_t rx_unit; /*!< PARLIO RX unit */
     parlio_rx_delimiter_handle_t rx_delimiter; /*!< PARLIO RX delimiter */
 } esp_cam_io_parl_t;
@@ -160,7 +186,7 @@ esp_err_t esp_cam_io_parl_receive(esp_cam_io_parl_handle_t esp_cam_io_parl, esp_
  * @param[out] hp_task_woken    Whether the high priority task is woken (Optional, set NULL if not needed)
  * @return
  *      - ESP_ERR_INVALID_ARG       esp_cam_io_parl is NULL
- *      - ESP_ERR_INVALID_STATE     Function is called in non-ISR context
+ *      - ESP_ERR_INVALID_STATE     Function is called in non-ISR context or invalid sampling mode
  *      - ESP_FAIL                  Failed to receive the frame buffer
  *      - ESP_OK                    Successfully received frame buffer from the queue
  */
@@ -174,6 +200,6 @@ esp_err_t esp_cam_io_parl_receive_from_isr(esp_cam_io_parl_handle_t esp_cam_io_p
  *      - ESP_ERR_INVALID_ARG       frame buffer is NULL
  *      - ESP_OK                    Successfully freed frame buffer
  */
-esp_err_t esp_cam_io_parl_free_buffer(esp_cam_io_parl_trans_t frame);
+esp_err_t esp_cam_io_parl_free_buffer(esp_cam_io_parl_trans_t *frame);
 
 #endif /* _ESP_CAM_IO_PARL_H_ */
