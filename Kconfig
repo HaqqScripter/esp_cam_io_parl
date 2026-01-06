@@ -1,5 +1,13 @@
 menu "Parallel IO Camera configuration"
 
+    config ESP_CAM_IO_PARL_NT99141
+        bool "Support NT99141 HD"
+        depends on (SOC_PARLIO_RX_UNIT_MAX_DATA_WIDTH > 8)
+        default y
+        help
+            Enable this option if you want to use the NT99141.
+            Disable this option to save memory.
+
     config ESP_CAM_IO_PARL_OV2640
         bool "Support OV2640 2MP"
         depends on (SOC_PARLIO_RX_UNIT_MAX_DATA_WIDTH > 8)
@@ -12,23 +20,24 @@ menu "Parallel IO Camera configuration"
         bool "Support OV3660 3MP"
         default y
         help
-            Enable this option if you want to use the OV3360.
+            Enable this option if you want to use the OV3660.
             Disable this option to save memory.
 
-    config ESP_CAM_IO_PARL_OV5640
+    menuconfig ESP_CAM_IO_PARL_OV5640
         bool "Support OV5640 5MP"
         default y
         help
             Enable this option if you want to use the OV5640.
             Disable this option to save memory.
-    
-    config ESP_CAM_IO_PARL_OV5640_AF
-        bool "Enable autofocus on OV5640"
-        depends on ESP_CAM_IO_PARL_OV5640
-        default n
-        help
-            Enable this option if you want to use the autofocus function on OV5640.
-            Disable this option to save memory.
+
+    if ESP_CAM_IO_PARL_OV5640
+        config ESP_CAM_IO_PARL_OV5640_AF
+            bool "Enable autofocus on OV5640"
+            help
+                Enable this option if you want to use the autofocus function on OV5640.
+                Disable this option to save memory.
+
+    endif # ESP_CAM_IO_PARL_OV5640
 
     choice ESP_CAM_IO_PARL_SCCB_I2C_PORT
         bool "I2C peripheral to use for SCCB"
@@ -55,7 +64,7 @@ menu "Parallel IO Camera configuration"
     config ESP_CAM_IO_PARL_PAYLOAD_SIZE
         int "DMA buffer size"
         range 8192 65535
-        default 32768
+        default 32767
         help
             Maximum value of DMA payload buffer
             Larger values may fail to allocate due to insufficient contiguous memory blocks, and smaller value may cause DMA interrupt to be too frequent.

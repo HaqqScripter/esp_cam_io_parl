@@ -22,23 +22,24 @@ This repository provides **ESP Parallel IO Camera** component (`esp_cam_io_parl`
 | OV2640  | 1600 x 1200    | color      | YUV(422/420)/YCbCr422<br>RGB565/555<br>8-bit compressed data<br>8/10-bit Raw RGB data | 1/4"     | ⚠️ (Only on ESP32-C6 & ESP32-P4) |
 | OV3660  | 2048 x 1536    | color      | raw RGB data<br/>RGB565/555/444<br/>CCIR656<br/>YCbCr422<br/>compression | 1/5"     | ✅ |
 | OV5640  | 2592 x 1944    | color      | RAW RGB<br/>RGB565/555/444<br/>CCIR656<br/>YUV422/420<br/>YCbCr422<br/>compression | 1/4"     | ✅ |
+| NT99141 | 1280 x 720     | color      | YCbCr 422<br/>RGB565/555/444<br/>Raw<br/>CCIR656<br/>JPEG compression | 1/4"     | ⚠️ (Only on ESP32-C6 & ESP32-P4) |
 
 ### DVP Data Width
 
 | Target    | Max data width               | Max PCLK frequency (ideal conditions) | Sample method format  |
 | --------- | ---------------------------- | ------------------------------------- | ----------------------|
-| ESP32-C6  | 16 (8 with valid signals)    | 80MHz                                 | Gated PCLK with software delimiter for 16 data lines, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
-| ESP32-H2  | 8 (No valid signals)         | 48MHz                                 | Gated PCLK with software delimiter for 8 data lines. This target does not accept valid signals with 8 data lines. |
-| ESP32-P4  | 16 (8 with valid signals)    | 80MHz                                 | Gated PCLK with software delimiter for 16 data lines, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
-| ESP32-C5  | 8 (No valid signals)         | 80MHz                                 | Gated PCLK with software delimiter for 8 data lines. This target does not accept valid signals with 8 data lines. |
-| ESP32-H4  | ?                            | ?                                     | ? |
+| ESP32-C6  | 16 (8 with valid signals)    | 80MHz                                 | Gated PCLK from camera sensor with software delimiter for 16 data lines, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
+| ESP32-H2  | 8 (No valid signals)         | 48MHz                                 | Gated PCLK from camera sensor with software delimiter for 8 data lines. This target does not accept valid signals with 8 data lines. |
+| ESP32-P4  | 16 (8 with valid signals)    | 80MHz                                 | Gated PCLK from camera sensor with software delimiter for 16 data lines, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
+| ESP32-C5  | 8 (No valid signals)         | 80MHz                                 | Gated PCLK from camera sensor with software delimiter for 8 data lines. This target does not accept valid signals with 8 data lines. |
+| ESP32-H4  | 8 (No valid signals)         | 48MHz                                 | Gated PCLK from camera sensor with software delimiter for 8 data lines. This target does not accept valid signals with 8 data lines. |
 
 ## Important to Remember
 
 - It is recommended to have PSRAM installed and enabled for higher resolutions. Therefore, the ESP32-H2 is not recommended for image streaming due to its lack of PSRAM support and limited internal RAM. The ESP32-C6 can handle resolutions up to SVGA (tested with Wi-Fi enabled and a streaming web server, XGA can be reached with some tweaks).
-- This component currently only accepts JPEG image inputs from DVP sensors due to the limitations of the Parallel IO driver for some targets (e.g. ESP32-H2 and ESP32-C5). As a result, it uses software delimiter with PCLK gating to allow streaming JPEG image from the following image sensors (except OV2640).
-- Currently only OV3660 and OV5640 sensors are implemented to have gated PCLK signals. OV2640 requires the target to have valid signals (e.g. ESP32-C6 and ESP32-P4) so it can properly interface with the following sensor. It is highly recommended to use OV5640 or OV3660 for targets with limited data width.
-- This component does not utilize VSYNC signals for controlling frames at the moment, support for receiving raw data will be possible if it gets implemented.
+- This component currently only accepts JPEG image inputs from DVP sensors due to the limitations of the Parallel IO driver for some targets (e.g. ESP32-H2 and ESP32-C5). As a result, it uses software delimiter with PCLK gating to allow streaming JPEG image from the following image sensors (except OV2640 & NT99141).
+- Currently only OV3660 and OV5640 sensors are implemented to have gated PCLK signals. OV2640 & NT99141 requires the target to have valid signals (e.g. ESP32-C6 and ESP32-P4) so it can properly interface with the following sensor. It is highly recommended to use OV5640 or OV3660 for targets with limited data width.
+- This component does not utilize VSYNC signals for controlling frames at the moment, support for receiving raw data will be possible if it gets implemented. VSYNC pin will be added as a part of ETM trigger for low latency.
 
 ## Additional Notes
 
@@ -51,16 +52,16 @@ This repository provides **ESP Parallel IO Camera** component (`esp_cam_io_parl`
 #### Through `idf.py add-dependency`
 - You can add the component through ESP Component Registry:
 ```c
-idf.py add-dependency haqqihaziq/esp_cam_io_parl
+idf.py add-dependency haqqscripter/esp_cam_io_parl
 ```
 - Additionally, to add the component as a dependency directly from GitHub `master` branch, run:
 ```c
-idf.py add-dependency --git "https://github.com/HaqqiHaziq/esp_cam_io_parl.git" esp_cam_io_parl
+idf.py add-dependency --git "https://github.com/HaqqScripter/esp_cam_io_parl.git" esp_cam_io_parl
 ```
 #### Download and apply it locally
 - Download and extract the component file.
 - Insert the component under the `components` folder in your project file.
-- If possible, enable PSRAM in `menuconfig` (also set Flash and PSRAM frequiencies to 80MHz for optimal performance)
+- If possible, enable PSRAM in `menuconfig` (also set Flash and PSRAM frequencies to the maximum speed available for the following targets for optimal performance)
 - Include the component in your main code:
   ```c
   #include "esp_camera_sensor.h"
@@ -578,12 +579,13 @@ You can go to `menuconfig` -> `Component config` -> `Parallel IO Camera configur
 You can also enable the use of LP I2C for ESP32-C6, ESP32-P4 and ESP32-C5 for SCCB interface. Please check the TRM on each target for the pins of LP I2C.<br>
 These are the list of default configurations for this component:
 ```c
+CONFIG_ESP_CAM_IO_PARL_NT99141 y // Probes NT99141. ESP32-C5 and ESP32-H2 have this configuration disabled since this sensor does not support it
 CONFIG_ESP_CAM_IO_PARL_OV2640 y // Probes OV2640. ESP32-C5 and ESP32-H2 have this configuration disabled since this sensor does not support it
 CONFIG_ESP_CAM_IO_PARL_OV3660 y // Probes OV3660
 CONFIG_ESP_CAM_IO_PARL_OV5640 y // Probes OV5640
 CONFIG_ESP_CAM_IO_PARL_OV5640_AF n // Allows OV5640 with Autofocus function
 
-CONFIG_CAMERA_PAYLOAD_BUFFER_SIZE 0x8000 // Payload size: 32768
+CONFIG_CAMERA_PAYLOAD_BUFFER_SIZE 0x7FFF // Payload size: 32767
 CONFIG_ESP_CAM_IO_PARL_SCCB_I2C_PORT0 y // Use the I2C0 port by default
 CONFIG_ESP_CAM_IO_PARL_SCCB_I2C_PORT1 n // I2C1 only available on ESP32-P4 and ESP32-H2
 CONFIG_ESP_CAM_IO_PARL_SCCB_LP_I2C_PORT0 n // Only available on ESP32-C6, ESP32-P4 and ESP32-C5
@@ -736,16 +738,6 @@ ESP Parallel IO Camera component to interface with the DVP port of the following
 | -------------------------- | ------------------------------------- |
 | `ESP_CAM_IO_PARL_PCLK_NEG` | Sample PCLK data on the negative edge |
 | `ESP_CAM_IO_PARL_PCLK_POS` | Sample PCLK data on the positive edge |
-
-#### `esp_cam_io_parl_input_format_t`
-
-> **Input color format. Only takes effect if `jpeg_en` is `0` (Not implemented)**
-
-| Enumerator                 | Description                           |
-| -------------------------- | ------------------------------------- |
-| `ESP_CAM_IO_PARL_RGB565` | RGB565 (2 bytes per pixel) |
-| `ESP_CAM_IO_PARL_RGB888` | RGB888 (3 bytes per pixel) |
-| `ESP_CAM_IO_PARL_YUV422` | YUV422 (2 bytes per pixel) |
 
 #### `esp_cam_io_parl_config_t`
 
@@ -930,4 +922,3 @@ Frees a previously received frame buffer.
 
 * `ESP_ERR_INVALID_ARG` — Invalid buffer.
 * `ESP_OK` — Success.
-
