@@ -1,7 +1,7 @@
 # ESP32 Parallel IO Camera Driver
 
-[![Component Registry](https://components.espressif.com/components/haqqihaziq/esp_cam_io_parl/badge.svg)](https://components.espressif.com/components/haqqihaziq/esp_cam_io_parl)
-<!--[![Latest Pre-release](https://img.shields.io/github/v/release/HaqqiHaziq/esp_cam_io_parl?include_prereleases)](https://github.com/HaqqiHaziq/esp_cam_io_parl/releases)-->
+[![Component Registry](https://components.espressif.com/components/haqqscripter/esp_cam_io_parl/badge.svg)](https://components.espressif.com/components/haqqscripter/esp_cam_io_parl)
+<!--[![Latest Pre-release](https://img.shields.io/github/v/release/haqqscripter/esp_cam_io_parl?include_prereleases)](https://github.com/HaqqiHaziq/esp_cam_io_parl/releases)-->
 
 ## General Information
 
