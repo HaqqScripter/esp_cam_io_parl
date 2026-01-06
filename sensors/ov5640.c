@@ -8,7 +8,6 @@
  *
  */
 #include "ov5640.h"
-#include "esp_rom_sys.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "ov5640_regs.h"
@@ -17,8 +16,6 @@
 #include "sensor.h"
 #include "xclk.h"
 #include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "esp_log.h"
 static const char *TAG = "ov5640";
@@ -53,57 +50,6 @@ static int read_reg16(uint8_t sccb_address, const uint16_t reg) {
     }
     return ret;
 }
-
-// static void dump_reg(camera_sensor_t *sensor, const uint16_t reg){
-//     int v = sccb_read16(sensor->sccb_address, reg);
-//     if(v < 0){
-//         ets_printf("  0x%04x: FAIL[%d]\n", reg, v);
-//     } else {
-//         ets_printf("  0x%04x: 0x%02X\n", reg, v);
-//     }
-// }
-//
-// static void dump_range(camera_sensor_t *sensor, const char * name, const uint16_t
-// start_reg, const uint16_t end_reg){
-//     ets_printf("%s: 0x%04x - 0x%04X\n", name, start_reg, end_reg);
-//     for(uint16_t reg = start_reg; reg <= end_reg; reg++){
-//         dump_reg(sensor, reg);
-//     }
-// }
-//
-// static void dump_regs(camera_sensor_t *sensor){
-////    dump_range(sensor, "All Regs", 0x3000, 0x6100);
-////    dump_range(sensor, "system and IO pad control", 0x3000, 0x3052);
-////    dump_range(sensor, "SCCB control", 0x3100, 0x3108);
-////    dump_range(sensor, "SRB control", 0x3200, 0x3211);
-////    dump_range(sensor, "AWB gain control", 0x3400, 0x3406);
-////    dump_range(sensor, "AEC/AGC control", 0x3500, 0x350D);
-////    dump_range(sensor, "VCM control", 0x3600, 0x3606);
-////    dump_range(sensor, "timing control", 0x3800, 0x3821);
-////    dump_range(sensor, "AEC/AGC power down domain control", 0x3A00, 0x3A25);
-////    dump_range(sensor, "strobe control", 0x3B00, 0x3B0C);
-////    dump_range(sensor, "50/60Hz detector control", 0x3C00, 0x3C1E);
-////    dump_range(sensor, "OTP control", 0x3D00, 0x3D21);
-////    dump_range(sensor, "MC control", 0x3F00, 0x3F0D);
-////    dump_range(sensor, "BLC control", 0x4000, 0x4033);
-////    dump_range(sensor, "frame control", 0x4201, 0x4202);
-////    dump_range(sensor, "format control", 0x4300, 0x430D);
-////    dump_range(sensor, "JPEG control", 0x4400, 0x4431);
-////    dump_range(sensor, "VFIFO control", 0x4600, 0x460D);
-////    dump_range(sensor, "DVP control", 0x4709, 0x4745);
-////    dump_range(sensor, "MIPI control", 0x4800, 0x4837);
-////    dump_range(sensor, "ISP frame control", 0x4901, 0x4902);
-////    dump_range(sensor, "ISP top control", 0x5000, 0x5063);
-////    dump_range(sensor, "AWB control", 0x5180, 0x51D0);
-////    dump_range(sensor, "CIP control", 0x5300, 0x530F);
-////    dump_range(sensor, "CMX control", 0x5380, 0x538B);
-////    dump_range(sensor, "gamma control", 0x5480, 0x5490);
-////    dump_range(sensor, "SDE control", 0x5580, 0x558C);
-////    dump_range(sensor, "scale control", 0x5600, 0x5606);
-////    dump_range(sensor, "AVG control", 0x5680, 0x56A2);
-////    dump_range(sensor, "LENC control", 0x5800, 0x5849);
-////    dump_range(sensor, "AFC control", 0x6000, 0x603F);
-//}
 
 static int write_reg(uint8_t sccb_address, const uint16_t reg, uint8_t value) {
     int ret = 0;
@@ -265,7 +211,6 @@ static int set_pll(camera_sensor_t *sensor, bool bypass, uint8_t multiplier, uin
 static int set_ae_level(camera_sensor_t *sensor, int level);
 
 static int reset(camera_sensor_t *sensor) {
-    // dump_regs(sensor);
     vTaskDelay(100 / portTICK_PERIOD_MS);
     int ret = 0;
     // Software Reset: clear all registers and reset them to their default
@@ -421,12 +366,13 @@ static int set_framesize(camera_sensor_t *sensor, camera_framesize_t framesize) 
     }
     uint16_t w = camera_resolution[framesize].width;
     uint16_t h = camera_resolution[framesize].height;
+
     camera_aspect_ratio_t ratio = camera_resolution[framesize].aspect_ratio;
     camera_ratio_settings_t settings = ratio_table[ratio];
 
     sensor->status.binning = (w <= (settings.max_width / 2) && h <= (settings.max_height / 2));
     sensor->status.scale = !((w == settings.max_width && h == settings.max_height) ||
-          (w == (settings.max_width / 2) && h == (settings.max_height / 2))) && !(framesize == FRAMESIZE_WQXGA || framesize == FRAMESIZE_QHD || framesize == FRAMESIZE_QSXGA || framesize == FRAMESIZE_SXGAM);
+          (w == (settings.max_width / 2) && h == (settings.max_height / 2))) && !(framesize == FRAMESIZE_QSXGA || framesize == FRAMESIZE_SXGAM);
 
     ret = write_addr_reg(sensor->sccb_address, X_ADDR_ST_H, settings.start_x, settings.start_y) ||
           write_addr_reg(sensor->sccb_address, X_ADDR_END_H, settings.end_x, settings.end_y) ||
@@ -436,27 +382,23 @@ static int set_framesize(camera_sensor_t *sensor, camera_framesize_t framesize) 
         goto fail;
     }
 
-    if (framesize == FRAMESIZE_SXGAM) { // Adjust the offset
-        settings.offset_x = 32;
-        settings.offset_y = 12;
+    if (framesize == FRAMESIZE_UXGA) {
+        settings.offset_y = 4;
     }
-    if (framesize == FRAMESIZE_HD) {
-        settings.offset_x = 32;
-        settings.offset_y = 16;
+    /*
+    if (FRAMESIZE_HD) {
+        settings.offset_y = 8;
         settings.total_y = 1484;
-    }
+    } */
 
     if (!sensor->status.binning) {
         ret = write_addr_reg(sensor->sccb_address, X_TOTAL_SIZE_H, settings.total_x, settings.total_y) ||
               write_addr_reg(sensor->sccb_address, X_OFFSET_H, settings.offset_x, settings.offset_y);
     } else {
-        if (w > 920) {
+        if (w > 1024) {
             ret = write_addr_reg(sensor->sccb_address, X_TOTAL_SIZE_H, settings.total_x - 200, settings.total_y / 2);
         } else {
             ret = write_addr_reg(sensor->sccb_address, X_TOTAL_SIZE_H, 2060, settings.total_y / 2);
-        }
-        if (ret == 0) {
-            ret = write_addr_reg(sensor->sccb_address, X_OFFSET_H, settings.offset_x / 2, settings.offset_y / 2);
         }
     }
 
@@ -473,7 +415,6 @@ static int set_framesize(camera_sensor_t *sensor, camera_framesize_t framesize) 
     }
 
     if (sensor->pixformat == PIXFORMAT_JPEG) {
-        // 10MHz PCLK
         uint8_t sys_mul = 200;
         ret = set_pll(sensor, false, sys_mul, 4, 2, false, 2, true, 4);
         // Set PLL: bypass: 0, multiplier: sys_mul, sys_div: 4, pre_div: 2,
@@ -1089,7 +1030,7 @@ static int autofocus_continuous_mode(camera_sensor_t *sensor) {
     do {
         temp = sensor->get_reg(sensor, CMD_ACK, 0xFF);
         retry++;
-        if (retry > 2000) {
+        if (retry > 1000) {
             return 2;
         }
         esp_rom_delay_us(2500);
@@ -1100,7 +1041,7 @@ static int autofocus_continuous_mode(camera_sensor_t *sensor) {
     do {
         temp = sensor->get_reg(sensor, CMD_ACK, 0xFF);
         retry++;
-        if (retry > 2000) {
+        if (retry > 1000) {
             return 2;
         }
         esp_rom_delay_us(2500);

@@ -15,8 +15,6 @@
 #include "sccb.h"
 #include "xclk.h"
 #include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "esp_log.h"
 static const char *TAG = "ov3660";
