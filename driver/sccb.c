@@ -3,6 +3,7 @@
 #include <string.h>
 #include "sccb.h"
 #include "esp_check.h"
+#include "hal/i2c_types.h"
 #include "sensor.h"
 #include "esp_err.h"
 #include "esp_log.h"

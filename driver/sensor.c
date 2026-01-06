@@ -6,6 +6,7 @@ const camera_sensor_info_t camera_sensor[CAMERA_MODEL_MAX] = {
     {CAMERA_OV2640, "OV2640", OV2640_SCCB_ADDR, OV2640_PID, FRAMESIZE_UXGA, true},
     {CAMERA_OV3660, "OV3660", OV3660_SCCB_ADDR, OV3660_PID, FRAMESIZE_QXGA, true},
     {CAMERA_OV5640, "OV5640", OV5640_SCCB_ADDR, OV5640_PID, FRAMESIZE_5MP, true},
+    {CAMERA_NT99141, "NT99141", NT99141_SCCB_ADDR, NT99141_PID, FRAMESIZE_HD, true},
 };
 
 const camera_resolution_info_t camera_resolution[FRAMESIZE_INVALID] = {
@@ -19,11 +20,11 @@ const camera_resolution_info_t camera_resolution[FRAMESIZE_INVALID] = {
     {  320,  320, ASPECT_RATIO_1X1   }, /* 320x320 */
     {  400,  296, ASPECT_RATIO_4X3   }, /* CIF   */
     {  480,  320, ASPECT_RATIO_3X2   }, /* HVGA  */
+    {  640,  360, ASPECT_RATIO_16X9  }, /* 640x360 */
     {  640,  480, ASPECT_RATIO_4X3   }, /* VGA   */
     {  800,  600, ASPECT_RATIO_4X3   }, /* SVGA  */
     { 1024,  768, ASPECT_RATIO_4X3   }, /* XGA   */
     { 1280,  720, ASPECT_RATIO_16X9  }, /* HD    */
-    { 1200,  800, ASPECT_RATIO_3X2   }, /* 1200x800 */
     { 1280,  960, ASPECT_RATIO_4X3   }, /* SXGAM */
     { 1280, 1024, ASPECT_RATIO_5X4   }, /* SXGA  */
     { 1600, 1200, ASPECT_RATIO_4X3   }, /* UXGA  */

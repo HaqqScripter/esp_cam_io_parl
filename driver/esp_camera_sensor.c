@@ -22,6 +22,9 @@
 #if CONFIG_ESP_CAM_IO_PARL_OV5640
 #include "ov5640.h"
 #endif
+#if CONFIG_ESP_CAM_IO_PARL_NT99141
+#include "nt99141.h"
+#endif
 
 static const char *TAG = "esp_camera_sensor";
 
@@ -48,6 +51,9 @@ static const camera_sensor_func_t g_sensors[] = {
 #endif
 #if CONFIG_ESP_CAM_IO_PARL_OV5640
     {ov5640_detect, ov5640_init},
+#endif
+#if CONFIG_ESP_CAM_IO_PARL_NT99141
+    {nt99141_detect, nt99141_init},
 #endif
 };
 
@@ -183,8 +189,7 @@ esp_err_t esp_camera_sensor_init(const esp_camera_sensor_config_t *config) {
     esp_camera_sensor->sensor.status.framesize = frame_size;
     esp_camera_sensor->sensor.pixformat = pix_format;
 
-    ESP_LOGD(TAG, "Setting frame size to %dx%d", camera_resolution[frame_size].width,
-             camera_resolution[frame_size].height);
+    ESP_LOGD(TAG, "Setting frame size to %dx%d", camera_resolution[frame_size].width, camera_resolution[frame_size].height);
     if (esp_camera_sensor->sensor.set_framesize(&esp_camera_sensor->sensor, frame_size) != 0) {
         ESP_LOGE(TAG, "Failed to set frame size");
         err = ESP_ERR_CAMERA_FAILED_TO_SET_FRAME_SIZE;
