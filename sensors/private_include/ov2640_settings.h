@@ -115,7 +115,6 @@ const DRAM_ATTR uint8_t ov2640_settings_cif[][2] = {
     {BD50, 0xbb},
     {BD60, 0x9c},
     {COM7, COM7_RES_CIF},
-    {COM10, 0x30},
     {HSTART, 0x11},
     {HSTOP, 0x43},
     {VSTART, 0x00},
@@ -382,6 +381,10 @@ const DRAM_ATTR uint8_t ov2640_settings_to_uxga[][2] = {
 };
 
 const DRAM_ATTR uint8_t ov2640_settings_jpeg3[][2] = {
+    {BANK_SEL, BANK_DSP},
+    {R_BYPASS, R_BYPASS_DSP_BYPAS},
+    {BANK_SEL, BANK_SENSOR},
+    {COM10, COM10_HREF_EN | COM10_VSYNC_NEG},
     {BANK_SEL, BANK_DSP},
     {RESET, RESET_JPEG | RESET_DVP},
     {IMAGE_MODE, IMAGE_MODE_JPEG_EN | IMAGE_MODE_HREF_VSYNC},
