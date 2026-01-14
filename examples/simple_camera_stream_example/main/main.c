@@ -171,7 +171,7 @@ static esp_err_t capture_handler(httpd_req_t *req) {
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
 
     res = httpd_resp_send(req, (const char *)frame.buffer, frame.length);
-    esp_cam_io_parl_free_buffer(frame);
+    esp_cam_io_parl_free_buffer(&frame);
 
     int64_t fr_end = esp_timer_get_time();
     ESP_LOGI(TAG, "JPG: %uB %ums", frame_length, (uint32_t)((fr_end - fr_start) / 1000));
@@ -212,7 +212,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
             res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
         }
         if (image.buffer) {
-            esp_cam_io_parl_free_buffer(image);
+            esp_cam_io_parl_free_buffer(&image);
             _jpg_buf = NULL;
         } else if (_jpg_buf) {
             free(_jpg_buf);
