@@ -14,8 +14,8 @@
  * @brief PCLK edge in esp_cam_io_parl configuration
  */
 typedef enum {
-    ESP_CAM_IO_PARL_PCLK_POS, /*!< Sample PCLK data on positive edge */
     ESP_CAM_IO_PARL_PCLK_NEG, /*!< Sample PCLK data on negative edge */
+    ESP_CAM_IO_PARL_PCLK_POS, /*!< Sample PCLK data on positive edge */
 } esp_cam_io_parl_pclk_edge_t;
 
 /**
@@ -63,13 +63,18 @@ typedef struct {
 typedef struct {
     uint8_t *buffer; /*!< Received frame buffer */
     uint32_t length; /*!< Frame buffer length */
+
+    // Stream mode
+    uint32_t total_bytes; /*!< Total bytes received */
+    uint32_t start_marker : 1; /*!< Implies that the current buffer is start of image */
+    uint32_t end_marker : 1; /*!< Implies that the current buffer is end of image */
 } esp_cam_io_parl_trans_t;
 
 /**
  * @brief Received chunked transaction buffer from esp_cam_io_parl
  */
 typedef struct {
-    uint8_t buffer[10384]; /*!< Received frame buffer */
+    uint8_t *buffer; /*!< Received frame buffer */
     uint32_t length; /*!< Frame buffer length */
     uint32_t total_bytes; /*!< Total bytes received */
     uint32_t start_marker : 1; /*!< Implies that the current buffer is start of image */
@@ -93,10 +98,10 @@ typedef struct esp_cam_io_parl_t {
         esp_cam_io_parl_stream_trans_t *streamed_frame; /*!< Streamed frame buffer data */
         uint8_t previous_byte; /*!< Last byte captured */
         size_t index; /*!< Index of the frame */
+        size_t total_bytes; /*!< Total bytes of the frame */
         int state; /*!< Frame capture state */
     } info; /*!< Frame buffer info */
     QueueHandle_t queue_handle; /*!< Queue handle for receiving frames */
-    QueueHandle_t queue_stream_handle; /*!< Queue handle for receiving streamed frames */
     parlio_rx_unit_handle_t rx_unit; /*!< PARLIO RX unit */
     parlio_rx_delimiter_handle_t rx_delimiter; /*!< PARLIO RX delimiter */
 } esp_cam_io_parl_t;
