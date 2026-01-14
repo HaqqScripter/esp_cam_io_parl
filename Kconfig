@@ -32,10 +32,18 @@ menu "Parallel IO Camera configuration"
 
     if ESP_CAM_IO_PARL_OV5640
         config ESP_CAM_IO_PARL_OV5640_AF
-            bool "Enable autofocus on OV5640"
+            bool "Enable autofocus function"
             help
-                Enable this option if you want to use the autofocus function on OV5640.
+                Enable this option if you want to use the autofocus feature on OV5640.
                 Disable this option to save memory.
+
+        config ESP_CAM_IO_PARL_OV5640_HPM
+            bool "High performance on resolutions higher than 1280x960 [EXPERIMENTAL]"
+            depends on IDF_EXPERIMENTAL_FEATURES
+            help
+                Enable this option to enable high frame rate captures on higher resolutions OV5640.
+                For example, this option increases 1920x1080 capture to 20fps when enabled, while allowing 15fps at maximum resolution.
+                Disable this option to use the default OV5640 settings.
 
     endif # ESP_CAM_IO_PARL_OV5640
 
@@ -64,7 +72,7 @@ menu "Parallel IO Camera configuration"
     config ESP_CAM_IO_PARL_PAYLOAD_SIZE
         int "DMA buffer size"
         range 8192 65535
-        default 32767
+        default 32768
         help
             Maximum value of DMA payload buffer
             Larger values may fail to allocate due to insufficient contiguous memory blocks, and smaller value may cause DMA interrupt to be too frequent.

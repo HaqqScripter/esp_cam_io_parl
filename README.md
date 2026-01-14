@@ -1,7 +1,6 @@
 # ESP32 Parallel IO Camera Driver
 
 [![Component Registry](https://components.espressif.com/components/haqqscripter/esp_cam_io_parl/badge.svg)](https://components.espressif.com/components/haqqscripter/esp_cam_io_parl)
-<!--[![Latest Pre-release](https://img.shields.io/github/v/release/haqqscripter/esp_cam_io_parl?include_prereleases)](https://github.com/HaqqiHaziq/esp_cam_io_parl/releases)-->
 
 ## General Information
 
@@ -26,24 +25,26 @@ This repository provides **ESP Parallel IO Camera** component (`esp_cam_io_parl`
 
 ### DVP Data Width
 
+The following table shows the circumstances for each target. OV5640 and OV3660 camera sensors have been configured to gate PCLK signals so they can transmit JPEG bytestreams.
+
 | Target    | Max data width               | Max PCLK frequency (ideal conditions) | Sample method format  |
 | --------- | ---------------------------- | ------------------------------------- | ----------------------|
-| ESP32-C6  | 16 (8 with valid signals)    | 80MHz                                 | Gated PCLK from camera sensor with software delimiter for 16 data lines, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
-| ESP32-H2  | 8 (No valid signals)         | 48MHz                                 | Gated PCLK from camera sensor with software delimiter for 8 data lines. This target does not accept valid signals with 8 data lines. |
-| ESP32-P4  | 16 (8 with valid signals)    | 80MHz                                 | Gated PCLK from camera sensor with software delimiter for 16 data lines, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
-| ESP32-C5  | 8 (No valid signals)         | 80MHz                                 | Gated PCLK from camera sensor with software delimiter for 8 data lines. This target does not accept valid signals with 8 data lines. |
-| ESP32-H4  | 8 (No valid signals)         | 48MHz                                 | Gated PCLK from camera sensor with software delimiter for 8 data lines. This target does not accept valid signals with 8 data lines. |
+| ESP32-C6  | 16 (8 with valid signals)    | 80MHz                                 | Software delimiter used for 16 data lines, suitable for JPEG bytestreams, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
+| ESP32-H2  | 8 (No valid signals)         | 48MHz                                 | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
+| ESP32-P4  | 16 (8 with valid signals)    | 80MHz                                 | Software delimiter used for 16 data lines, suitable for JPEG bytestreams, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
+| ESP32-C5  | 8 (No valid signals)         | 80MHz                                 | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
+| ESP32-H4  | 8 (No valid signals)         | 48MHz                                 | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
 
 ## Important to Remember
 
 - It is recommended to have PSRAM installed and enabled for higher resolutions. Therefore, the ESP32-H2 is not recommended for image streaming due to its lack of PSRAM support and limited internal RAM. The ESP32-C6 can handle resolutions up to SVGA (tested with Wi-Fi enabled and a streaming web server, XGA can be reached with some tweaks).
 - This component currently only accepts JPEG image inputs from DVP sensors due to the limitations of the Parallel IO driver for some targets (e.g. ESP32-H2 and ESP32-C5). As a result, it uses software delimiter with PCLK gating to allow streaming JPEG image from the following image sensors (except OV2640 & NT99141).
 - Currently only OV3660 and OV5640 sensors are implemented to have gated PCLK signals. OV2640 & NT99141 requires the target to have valid signals (e.g. ESP32-C6 and ESP32-P4) so it can properly interface with the following sensor. It is highly recommended to use OV5640 or OV3660 for targets with limited data width.
-- This component does not utilize VSYNC signals for controlling frames at the moment, support for receiving raw data will be possible if it gets implemented. VSYNC pin will be added as a part of ETM trigger for low latency.
+- This component does not utilize VSYNC signals for controlling frames at the moment, support for receiving raw data will be possible if it gets implemented. VSYNC pin will be added as a part of ETM trigger or pulse delimiter for the Parallel IO peripheral for low latency.
 
 ## Additional Notes
 
-- You can also use this component to receive JPEG images from another target capable of sending parallel data.
+- You can also use this component to receive JPEG images from another target capable of sending parallel data. Typically DVP camera sensors have 8/10-bit output.
 
 ## Installation Instructions
 
@@ -579,18 +580,42 @@ You can go to `menuconfig` -> `Component config` -> `Parallel IO Camera configur
 You can also enable the use of LP I2C for ESP32-C6, ESP32-P4 and ESP32-C5 for SCCB interface. Please check the TRM on each target for the pins of LP I2C.<br>
 These are the list of default configurations for this component:
 ```c
-CONFIG_ESP_CAM_IO_PARL_NT99141 y // Probes NT99141. ESP32-C5 and ESP32-H2 have this configuration disabled since this sensor does not support it
-CONFIG_ESP_CAM_IO_PARL_OV2640 y // Probes OV2640. ESP32-C5 and ESP32-H2 have this configuration disabled since this sensor does not support it
+CONFIG_ESP_CAM_IO_PARL_NT99141 y // Probes NT99141. Targets without valid signals will have this configuration disabled since this sensor does not support it
+CONFIG_ESP_CAM_IO_PARL_OV2640 y // Probes OV2640. Targets without valid signals will have this configuration disabled since this sensor does not support it
 CONFIG_ESP_CAM_IO_PARL_OV3660 y // Probes OV3660
 CONFIG_ESP_CAM_IO_PARL_OV5640 y // Probes OV5640
 CONFIG_ESP_CAM_IO_PARL_OV5640_AF n // Allows OV5640 with Autofocus function
+CONFIG_ESP_CAM_IO_PARL_OV5640_HPM n // [Experimental] Enables high performance on OV5640 for resolutions above 1280x960, this will allow 15FPS at full resolution, while 20FPS at 2560x1440 (QHD) resolution. Works best with 24MHz XCLK
 
-CONFIG_CAMERA_PAYLOAD_BUFFER_SIZE 0x7FFF // Payload size: 32767
+CONFIG_CAMERA_PAYLOAD_BUFFER_SIZE 0x8000 // Payload size: 32768
 CONFIG_ESP_CAM_IO_PARL_SCCB_I2C_PORT0 y // Use the I2C0 port by default
 CONFIG_ESP_CAM_IO_PARL_SCCB_I2C_PORT1 n // I2C1 only available on ESP32-P4 and ESP32-H2
 CONFIG_ESP_CAM_IO_PARL_SCCB_LP_I2C_PORT0 n // Only available on ESP32-C6, ESP32-P4 and ESP32-C5
 CONFIG_ESP_CAM_IO_PARL_SCCB_CLK_FREQ 100000 // Higher values allows for faster initialization for SCCB
 ```
+
+# Measured Frame Rates
+At the moment, only the OV5640 camera sensor was measured. To accquire higher frame rates on OV5640, please refer to `Experimental Features (High Peformance Mode)` section.
+### OV5640
+| Resolution                                         | Aspect ratio  | Max frame rate  |
+| -------------------------------------------------- | ------------- | --------------- |
+| 2592x1944<br>2560x1920<br>2048x1536<br>1600x1200   | 4:3           | ~10FPS          |
+| 1088x1920<br>720x1280<br>864x1536                  | 9:16          | ~15FPS          |
+| 2560x1600<br>1920x1200                             | 16:10         | ~12FPS          |
+| 2560x1440<br>1920x1080                             | 16:9          | ~13FPS          |
+| 2160x1440                                          | 3:2           | ~11FPS          |
+| 1280x1024                                          | 5:4           | ~10FPS          |
+| 1280x960                                           | 4:3           | ~22FPS          |
+| 1280x720                                           | 16:9          | ~30FPS          |
+| 1024x768 (and below with the same aspect ratio)    | 4:3           | ~29FPS          |
+| 640x360                                            | 16:9          | ~38FPS          |
+| 480x320                                            | 3:2           | ~32FPS          |
+| 320x320  (and below with the same aspect ratio)    | 1:1           | ~29FPS          |
+| 176x144                                            | 5:4           | ~28FPS          |
+
+# Experimental Features (High Peformance Mode)
+- Currently, OV5640 has settings that allow 15FPS capture at full resolution (2592x1944), and 20FPS at QHD (2560x1440) by enabling `CONFIG_ESP_CAM_IO_PARL_OV5640_HPM` and it will be visible only if `CONFIG_IDF_EXPERIMENTAL_FEATURES` configuration is enabled. This feature works best with a stable 24MHz XCLK.
+- Please ensure that the bandwidth is sufficient to transmit the image (over Wi-Fi, SD Card, or another target), it is preferred that UDP transport over Wi-Fi is used. This is true for high quality JPEG images at larger resolutions as they consume large amount of file size. Additionally, higher frame rates can consume more current.
 
 # API Reference
 

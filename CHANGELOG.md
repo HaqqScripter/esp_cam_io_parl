@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.0-beta.7
+
+### Bug Fixes
+
+- Revert enum naming scheme for `esp_cam_io_parl_pclk_edge_t`.
+- Fixed `simple_camera_stream_example` main.c file.
+
+### Features
+
+- Added High Performance Mode (HPM) as an experimental feature for OV5640 camera sensor. It allows images to be captured at a higher frame rate (e.g. 15FPS at 5MP) for resolutions above 1280x960. See `README.md` for more details.
+- `JPEG buffer overflow` warning now re-implemented.
+- Added more descriptions on `README.md` file.
+
 ## v0.1.0-beta.6
 
 ### Bug Fixes
