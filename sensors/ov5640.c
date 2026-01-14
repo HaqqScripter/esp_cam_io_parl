@@ -385,11 +385,9 @@ static int set_framesize(camera_sensor_t *sensor, camera_framesize_t framesize) 
     if (framesize == FRAMESIZE_UXGA) {
         settings.offset_y = 4;
     }
-    /*
-    if (FRAMESIZE_HD) {
+    if (framesize == FRAMESIZE_640X360 || (ratio == ASPECT_RATIO_9X16 && framesize >= FRAMESIZE_P_HD)) {
         settings.offset_y = 8;
-        settings.total_y = 1484;
-    } */
+    }
 
     if (!sensor->status.binning) {
         ret = write_addr_reg(sensor->sccb_address, X_TOTAL_SIZE_H, settings.total_x, settings.total_y) ||
@@ -415,12 +413,24 @@ static int set_framesize(camera_sensor_t *sensor, camera_framesize_t framesize) 
     }
 
     if (sensor->pixformat == PIXFORMAT_JPEG) {
-        uint8_t sys_mul = 200;
-        ret = set_pll(sensor, false, sys_mul, 4, 2, false, 2, true, 4);
-        // Set PLL: bypass: 0, multiplier: sys_mul, sys_div: 4, pre_div: 2,
-        // root_2x: 0, pclk_root_div: 2, pclk_manual: 1, pclk_div: 4
+#if CONFIG_ESP_CAM_IO_PARL_OV5640_HPM
+        int pclk_multiplier = (ratio == ASPECT_RATIO_9X16 && framesize >= FRAMESIZE_P_HD) ? 120 : 140;
+        if (framesize > FRAMESIZE_SXGAM) {
+            ret = set_pll(sensor, false, pclk_multiplier, 2, 2, false, 3, true, 4);
+            int gaincelling_level = 124;
+            ret = write_reg(sensor->sccb_address, 0x3A18, (gaincelling_level >> 8) & 3) || write_reg(sensor->sccb_address, 0x3A19, gaincelling_level & 0xFF);
+            if (ret == 0) {
+                ESP_LOGD(TAG, "Set gainceiling to: %d", gaincelling_level);
+                sensor->status.gainceiling = gaincelling_level;
+            }
+        }
+        else {
+            ret = set_pll(sensor, false, 200, 4, 2, false, 2, true, 4);
+        }
+#else
+        ret = set_pll(sensor, false, 200, 4, 2, false, 2, true, 4);
+#endif
     } else {
-        // ret = set_pll(sensor, false, 8, 1, 1, false, 1, true, 4);
         if (framesize > FRAMESIZE_HVGA) {
             ret = set_pll(sensor, false, 10, 1, 2, false, 1, true, 2);
         } else if (framesize >= FRAMESIZE_QVGA) {
@@ -1083,7 +1093,11 @@ static int init_status(camera_sensor_t *sensor) {
     sensor->status.agc_gain = get_agc_gain(sensor);
     sensor->status.aec_value = get_aec_value(sensor);
     sensor->status.aec2 = check_reg_mask(sensor->sccb_address, 0x3a00, 0x04);
-    
+
+#if CONFIG_ESP_CAM_IO_PARL_OV5640_HPM
+    ESP_LOGW(TAG, "High performance on resolutions greater than 1280x960 is applied, please ensure the bandwidth is sufficient for transmitting the image data");
+#endif
+
 #if CONFIG_ESP_CAM_IO_PARL_OV5640_AF
     ESP_LOGI(TAG, "Initializing autofocus mode");
     if (autofocus_init(sensor) == 0) {
