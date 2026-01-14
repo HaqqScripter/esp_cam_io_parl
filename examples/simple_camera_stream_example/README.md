@@ -6,7 +6,7 @@
 
 ## Overview
 
-This example demonstrates how to use the `esp_cam_parl_io` component to capture DVP camera sensor signals and send it via HTTP server. This example will auto-detect camera sensors via the `esp_Camera_sensor` header and capture camera sensor signals via DVP interface.
+This example demonstrates how to use the `esp_cam_parl_io` component to capture DVP camera sensor signals and send it via HTTP server. This example will auto-detect camera sensors via the `esp_camera_sensor` header and capture camera sensor signals via DVP interface.
 
 ## Usage
 
@@ -16,7 +16,7 @@ The subsections below give only absolutely necessary information. For full steps
 ### Hardware Required
 
 - ESP32-C5 with OV3660, OV5640 camera sensor
-- ESP32-C6/ESP32-P4 with OV2640, OV3660 or OV5640
+- ESP32-C6/ESP32-P4 with OV2640, NT99141, OV3660 or OV5640
 
 To allow wireless capabilities of the ESP32-P4, please ensure a co-processor with ESP-HOSTED firmware is installed. Otherwise, you may use an Ethernet PHY.
 
