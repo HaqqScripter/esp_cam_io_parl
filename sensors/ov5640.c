@@ -382,10 +382,12 @@ static int set_framesize(camera_sensor_t *sensor, camera_framesize_t framesize) 
         goto fail;
     }
 
+    bool is_portrait_hd = (ratio == ASPECT_RATIO_9X16 && framesize >= FRAMESIZE_P_HD);
+
     if (framesize == FRAMESIZE_UXGA) {
         settings.offset_y = 4;
     }
-    if (framesize == FRAMESIZE_640X360 || (ratio == ASPECT_RATIO_9X16 && framesize >= FRAMESIZE_P_HD)) {
+    if (framesize == FRAMESIZE_640X360 || is_portrait_hd) {
         settings.offset_y = 8;
     }
 
@@ -414,9 +416,10 @@ static int set_framesize(camera_sensor_t *sensor, camera_framesize_t framesize) 
 
     if (sensor->pixformat == PIXFORMAT_JPEG) {
 #if CONFIG_ESP_CAM_IO_PARL_OV5640_HPM
-        int pclk_multiplier = (ratio == ASPECT_RATIO_9X16 && framesize >= FRAMESIZE_P_HD) ? 120 : 140;
+        uint8_t multiplier = is_portrait_hd ? 120 : 138;
+        uint8_t pclk_root_div = is_portrait_hd ? 3 : 2;
         if (framesize > FRAMESIZE_SXGAM) {
-            ret = set_pll(sensor, false, pclk_multiplier, 2, 2, false, 3, true, 4);
+            ret = set_pll(sensor, false, multiplier, 2, 2, false, pclk_root_div, true, 4);
             int gaincelling_level = 124;
             ret = write_reg(sensor->sccb_address, 0x3A18, (gaincelling_level >> 8) & 3) || write_reg(sensor->sccb_address, 0x3A19, gaincelling_level & 0xFF);
             if (ret == 0) {
