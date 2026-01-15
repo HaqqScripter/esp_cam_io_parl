@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.0-beta.7.1 (Hotfix)
+
+### Bug Fixes
+
+- Slightly adjusted PLL settings on High Performance Mode for OV5640 so the image will transmit properly.
+
 ## v0.1.0-beta.7
 
 ### Bug Fixes
