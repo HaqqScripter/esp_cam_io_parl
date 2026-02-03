@@ -9,7 +9,7 @@
 #ifndef __OV3660_H__
 #define __OV3660_H__
 
-#include "sensor.h"
+#include "esp_cam_sensor_io_parl.h"
 
 /**
  * @brief Detect sensor pid
@@ -20,7 +20,7 @@
  *     0:       Can't detect this sensor
  *     Nonzero: This sensor has been detected
  */
-int ov3660_detect(int sccb_address, camera_sensor_id_t *id);
+int ov3660_detect(int sccb_address, esp_cam_sensor_io_parl_id_t *id);
 
 /**
  * @brief initialize sensor function pointers
@@ -29,6 +29,6 @@ int ov3660_detect(int sccb_address, camera_sensor_id_t *id);
  * @return
  *      Always 0
  */
-int ov3660_init(camera_sensor_t *sensor);
+int ov3660_init(esp_cam_sensor_io_parl_handle_t cam_sensor);
 
-#endif // __OV3660_H__
+#endif

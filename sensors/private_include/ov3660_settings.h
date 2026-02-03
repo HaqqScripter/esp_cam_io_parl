@@ -4,11 +4,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "sensor.h"
+#include "esp_cam_sensor_io_parl.h"
 #include "ov3660_regs.h"
 #include "esp_attr.h"
 
-static const camera_ratio_settings_t ratio_table[] = {
+static const esp_cam_sensor_io_parl_ratio_settings_t ratio_table[] = {
     //  mw,   mh,  sx,  sy,   ex,   ey, ox, oy,   tx,   ty
     { 2048, 1536,   0,   0, 2079, 1547, 16, 6, 2300, 1564 }, //4x3
     { 1920, 1280,  64, 128, 2015, 1419, 16, 6, 2172, 1436 }, //3x2
