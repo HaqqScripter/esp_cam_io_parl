@@ -14,9 +14,8 @@
 #include "sdkconfig.h"
 
 #include "esp_cam_io_parl.h"
-#include "esp_camera_sensor.h"
 
-static const char *TAG = "parallel_io_camera";
+static const char *TAG = "simple_camera_stream";
 
 // Camera Sensor Configuration. Set the pins according to your connection to the DVP camera.
 #define CAM_PWDN_PIN -1   // Power down pin, set to -1 if not used
@@ -55,7 +54,8 @@ static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %
 httpd_handle_t capture_httpd = NULL;
 httpd_handle_t stream_httpd = NULL;
 
-static esp_cam_io_parl_handle_t esp_cam_io_parl_handle;
+static esp_cam_io_parl_handle_t esp_cam_dvp_handle;
+static esp_cam_sensor_io_parl_handle_t esp_cam_sensor_handle;
 
 typedef struct {
     size_t size;   //number of values used for filtering
@@ -158,7 +158,7 @@ static esp_err_t capture_handler(httpd_req_t *req) {
     esp_err_t res = ESP_OK;
     int64_t fr_start = esp_timer_get_time();
     esp_cam_io_parl_trans_t frame;
-    if (esp_cam_io_parl_receive(esp_cam_io_parl_handle, &frame, 5000) != ESP_OK) {
+    if (esp_cam_io_parl_receive(esp_cam_dvp_handle, &frame, 5000) != ESP_OK) {
         ESP_LOGE(TAG, "Camera capture failed");
         httpd_resp_send_500(req);
         return ESP_FAIL;
@@ -194,7 +194,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     while (true) {
         int64_t last_frame = esp_timer_get_time();
         esp_cam_io_parl_trans_t image;
-        if (esp_cam_io_parl_receive(esp_cam_io_parl_handle, &image, 5000) != ESP_OK) {
+        if (esp_cam_io_parl_receive(esp_cam_dvp_handle, &image, 5000) != ESP_OK) {
             ESP_LOGE(TAG, "Camera capture failed");
             res = ESP_FAIL;
         } else {
@@ -283,23 +283,22 @@ void app_main(void) {
     ESP_ERROR_CHECK(ret);
 
     // Camera sensor configuration
-    static esp_camera_sensor_config_t camera_sensor_config = {
+    static esp_cam_sensor_io_parl_config_t esp_cam_sensor_io_parl_config = {
         .pwdn_io = CAM_PWDN_PIN,
         .reset_io = CAM_RESET_PIN,
         .xclk_io = CAM_XCLK_PIN,
         .xclk_hz = 20000000,
         .sda_io = CAM_SDA_PIN,
         .scl_io = CAM_SCL_PIN,
-        .ledc_timer = LEDC_TIMER_0,
-        .ledc_channel = LEDC_CHANNEL_0,
-        .pixel_format = PIXFORMAT_JPEG, // esp_cam_io_parl only supports JPEG images at the moment
-        .frame_size = FRAMESIZE_QVGA,
-        .jpeg_quality = 8,
+        .pixel_format = ESP_CAM_IO_PARL_PIXFORMAT_JPEG, // esp_cam_io_parl only supports JPEG images at the moment
+        .frame_size = ESP_CAM_IO_PARL_FRAMESIZE_QVGA,
+        .jpeg_quality = 12,
     };
     // DVP port configuration
     static esp_cam_io_parl_config_t esp_cam_io_parl_config = {
         .data_width = 8,
         .queue_frames = 1,
+        .frame_heap_caps = FRAME_BUFFER_CAPS,
         .pclk_io = CAM_PCLK_PIN,
         .de_io = CAM_HREF_PIN,
         .hsync_io = CAM_HSYNC_PIN,
@@ -315,26 +314,23 @@ void app_main(void) {
             CAM_D7_PIN,
         },
         .flags = {
-            .free_clk = true,
             .allow_pd = true,
         },
     };
-    esp_err_t err = esp_camera_sensor_init(&camera_sensor_config);
+    esp_err_t err = esp_cam_new_sensor_io_parl(&esp_cam_sensor_io_parl_config, &esp_cam_sensor_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Camera init failed with error 0x%x", err);
         return;
     }
-    camera_sensor_t *sensor = esp_camera_sensor_get();
-    ESP_LOGI(TAG, "Camera detected! Current quality = %u", sensor->status.quality);
+    ESP_LOGI(TAG, "Camera detected! Current quality = %u", esp_cam_sensor_handle->status.quality);
 
-    sensor->set_vflip(sensor, true); // Adjust if the image is flipped vertically
-    sensor->set_hmirror(sensor, false); // Adjust if the image is flipped horizontally
+    esp_cam_sensor_handle->set_vflip(esp_cam_sensor_handle, true); // Adjust if the image is flipped vertically
+    esp_cam_sensor_handle->set_hmirror(esp_cam_sensor_handle, false); // Adjust if the image is flipped horizontally
 
-    ESP_ERROR_CHECK(esp_cam_new_io_parl(&esp_cam_io_parl_config, &esp_cam_io_parl_handle));
-    ESP_ERROR_CHECK(esp_cam_io_parl_enable(esp_cam_io_parl_handle, true));
+    ESP_ERROR_CHECK(esp_cam_new_io_parl(&esp_cam_io_parl_config, &esp_cam_dvp_handle));
+    ESP_ERROR_CHECK(esp_cam_io_parl_enable(esp_cam_dvp_handle, true));
 
-    image_info_t *image = esp_camera_sensor_get_image(); // Prepare the frame allocation
-    ESP_ERROR_CHECK(esp_cam_io_parl_set_alloc_size(esp_cam_io_parl_handle, image->width * image->height / 4 + 2048, FRAME_BUFFER_CAPS));
+    ESP_ERROR_CHECK(esp_cam_sensor_io_parl_connect(esp_cam_dvp_handle));
 
     wifi_init_softap();
     start_camera_server();
