@@ -1,6 +1,7 @@
 #ifndef _ESP_CAM_IO_PARL_H_
 #define _ESP_CAM_IO_PARL_H_
 
+#include "freertos/idf_additions.h"
 #pragma once
 
 #include "esp_err.h"
@@ -32,6 +33,7 @@ typedef enum {
 typedef struct {
     size_t data_width; /*!< DVP data width. ESP32-C5 & ESP32-H2 only supports up to 8 data lines and does not support valid signals. ESP32-C6 & ESP32-P4 supports up to 16 data lines, while only up to 8 data lines usable with DE or HSYNC pins used on the following targets */
     size_t queue_frames; /*!< Number of frames to be queued */
+    uint32_t frame_heap_caps; /*!< Determines where would be the frame buffer stored */
 
     gpio_num_t pclk_io; /*!< PCLK GPIO pin */
     uint32_t pclk_hz; /*!< PCLK frequency, in Hz*/
@@ -52,7 +54,6 @@ typedef struct {
 
         uint32_t jpeg_en : 1; /*!< Expects JPEG input (Not implemented, used by default) */
 
-        uint32_t free_clk : 1; /*!< Whether the PCLK is free running */
         uint32_t allow_pd : 1; /*!< Set to allow power down */
     } flags;
 } esp_cam_io_parl_config_t;
@@ -71,19 +72,6 @@ typedef struct {
 } esp_cam_io_parl_trans_t;
 
 /**
- * @brief Received chunked transaction buffer from esp_cam_io_parl
- */
-typedef struct {
-    uint8_t *buffer; /*!< Received frame buffer */
-    uint32_t length; /*!< Frame buffer length */
-    uint32_t total_bytes; /*!< Total bytes received */
-    uint32_t start_marker : 1; /*!< Implies that the current buffer is start of image */
-    uint32_t end_marker : 1; /*!< Implies that the current buffer is end of image */
-    //uint32_t has_start_marker : 1; /*!< Implies that the overall buffer has start of image marker */
-    //uint32_t has_end_marker : 1; /*!< Implies that the overall buffer has end of image marker */
-} esp_cam_io_parl_stream_trans_t;
-
-/**
  * @brief esp_cam_io_parl handle struct
  */
 typedef struct esp_cam_io_parl_t {
@@ -93,15 +81,15 @@ typedef struct esp_cam_io_parl_t {
     uint8_t *payload; /*!< DMA buffer */
     uint32_t use_soft_delimiter : 1; /*!< Is using PARLIO RX software delimiter */
     esp_cam_io_parl_config_t config;
-    volatile struct {
+    struct {
         esp_cam_io_parl_trans_t frame; /*!< Frame buffer data */
-        esp_cam_io_parl_stream_trans_t *streamed_frame; /*!< Streamed frame buffer data */
         uint8_t previous_byte; /*!< Last byte captured */
         size_t index; /*!< Index of the frame */
         size_t total_bytes; /*!< Total bytes of the frame */
         int state; /*!< Frame capture state */
     } info; /*!< Frame buffer info */
-    QueueHandle_t queue_handle; /*!< Queue handle for receiving frames */
+    QueueHandle_t queue_handle[3]; /*!< Queue handle for receiving frames */
+    TaskHandle_t cam_task_handle;
     parlio_rx_unit_handle_t rx_unit; /*!< PARLIO RX unit */
     parlio_rx_delimiter_handle_t rx_delimiter; /*!< PARLIO RX delimiter */
 } esp_cam_io_parl_t;
@@ -137,7 +125,7 @@ esp_err_t esp_cam_del_io_parl(esp_cam_io_parl_handle_t esp_cam_io_parl);
  * @brief Set the allocation size for frame buffer
  *
  * @param[in] esp_cam_io_parl   esp_cam_io_parl handle that was created by `esp_cam_new_io_parl`
- * @param[in] alloc_size   Frame buffer allocation size. For JPEG images, recommended size is width * height / 4 + 2048
+ * @param[in] alloc_size   Frame buffer allocation size. For JPEG images, recommended size is width * height / 4.5 + 4096
  * @param[in] heap_caps   Whether the frame is stored in Internal RAM (MALLOC_CAP_INTERNAL) or PSRAM (MALLOC_CAP_SPIRAM) if supported
  * @return
  *      - ESP_ERR_INVALID_ARG       Invalid arguments in the parameter or esp_cam_io_parl is NULL
@@ -207,4 +195,6 @@ esp_err_t esp_cam_io_parl_receive_from_isr(esp_cam_io_parl_handle_t esp_cam_io_p
  */
 esp_err_t esp_cam_io_parl_free_buffer(esp_cam_io_parl_trans_t *frame);
 
-#endif /* _ESP_CAM_IO_PARL_H_ */
+#include "esp_cam_sensor_io_parl.h"
+
+#endif
