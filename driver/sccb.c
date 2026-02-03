@@ -4,11 +4,11 @@
 #include "sccb.h"
 #include "esp_check.h"
 #include "hal/i2c_types.h"
-#include "sensor.h"
+#include "esp_cam_sensor_io_parl.h"
 #include "esp_err.h"
 #include "esp_log.h"
 
-static const char *TAG = "sccb";
+static const char *TAG = "esp_cam_io_parl_sccb";
 
 #define LITTLETOBIG(x) ((x << 8) | (x >> 8))
 
@@ -142,11 +142,11 @@ uint8_t sccb_probe(void) {
 
     ESP_RETURN_ON_ERROR(i2c_master_get_bus_handle(sccb_i2c_port, &bus_handle),TAG, "Failed to get SCCB I2C Bus handle for port %d", sccb_i2c_port);
 
-    for (size_t i = 0; i < CAMERA_MODEL_MAX; i++) {
-        if (slave_address == camera_sensor[i].sccb_address) {
+    for (size_t i = 0; i < ESP_CAM_IO_PARL_MODEL_MAX; i++) {
+        if (slave_address == esp_cam_sensor_io_parl_sensor[i].sccb_address) {
             continue;
         }
-        slave_address = camera_sensor[i].sccb_address;
+        slave_address = esp_cam_sensor_io_parl_sensor[i].sccb_address;
 
         esp_err_t ret = i2c_master_probe(bus_handle, slave_address, SCCB_TIMEOUT_MS);
         if (ret == ESP_OK) {

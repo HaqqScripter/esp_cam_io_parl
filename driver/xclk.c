@@ -2,10 +2,10 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "xclk.h"
-#include "esp_camera_sensor.h"
+#include "esp_cam_sensor_io_parl.h"
 
 #include "esp_log.h"
-static const char* TAG = "camera_xclk";
+static const char* TAG = "esp_cam_io_parl_xclk";
 
 #define NO_CAMERA_LEDC_CHANNEL 0xFF
 static ledc_channel_t g_ledc_channel = NO_CAMERA_LEDC_CHANNEL;
@@ -25,7 +25,7 @@ esp_err_t xclk_timer_conf(int ledc_timer, int xclk_freq_hz) {
     return err;
 }
 
-esp_err_t camera_enable_out_clock(const esp_camera_sensor_config_t* config) {
+esp_err_t camera_enable_out_clock(const esp_cam_sensor_io_parl_config_t* config) {
     esp_err_t err = xclk_timer_conf(config->ledc_timer, config->xclk_hz);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "ledc_timer_config failed, rc=%x", err);
