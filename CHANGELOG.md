@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.0-beta.8
+
+### Bug Fixes
+- Removed `FRAMESIZE_2160X1440` camera resolution.
+- Frame buffer no longer freed when calling `esp_cam_io_parl_set_alloc_size` function.
+
+### Features
+- (Breaking changes) Partially reworked the old `esp_camera_sensor` as `esp_cam_sensor_io_parl`.
+- Now all heap memory allocation functions are executed on the new camera task instead on the ISR function. This significantly improves reliability of the user application.
+- OV5640: High Performance Mode no longer restricted to `CONFIG_IDF_EXPERIMENTAL_FEATURES`, and implemented settings for all resolutions. Now the OV5640 can capture up to 40FPS at 1280x720 resolution, and 30FPS at 1280x960. This option will be enabled by default in future updates when proven stable.
+- OV5640 & OV3660 will have its sharpness set to the lowest value and denoise set to the maximum value on initialization.
+
+### `esp_cam_sensor_io_parl`
+- Now the user can attach the DVP interface (`esp_cam_io_parl`) to the camera sensor interface. When the DVP port is attached, the camera settings will be applied depending on the DVP port configuration. This will also enable automatic frame size allocation (user can set it to manually on `menuconfig`) when changing the camera resolution. Refer to `README.md` > `API Reference` section for more info on new camera sensor component.
+- Presets will be added in later versions. It is a set of pre-configured camera settings that can be accessed through the preset identifier. For example, the planned presets for OV5640 are `DVP_8bit_24Minput_JPEG_320x240_40fps`, `DVP_8bit_24Minput_JPEG_640x480_40fps`, `DVP_8bit_24Minput_JPEG_1280x720_40fps`, `DVP_8bit_24Minput_JPEG_1280x960_30fps`, `DVP_8bit_24Minput_JPEG_1600x1200_15fps`, `DVP_8bit_24Minput_JPEG_1920x1080_20fps`, `DVP_8bit_24Minput_JPEG_2048x1536_15fps`, `DVP_8bit_24Minput_JPEG_2560x1440_20fps`, `DVP_8bit_24Minput_JPEG_2592x1944_15fps`.
+
 ## v0.1.0-beta.7.1 (Hotfix)
 
 ### Bug Fixes

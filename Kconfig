@@ -35,21 +35,67 @@ menu "Parallel IO Camera configuration"
             bool "Enable autofocus function"
             help
                 Enable this option if you want to use the autofocus feature on OV5640.
-                Disable this option to save memory.
+                Disable this option to save memory and faster initialization time.
 
-        config ESP_CAM_IO_PARL_OV5640_HPM
-            bool "High performance on resolutions higher than 1280x960 [EXPERIMENTAL]"
-            depends on IDF_EXPERIMENTAL_FEATURES
+        choice ESP_CAM_IO_PARL_OV5640_HPM
+            bool "High Performance Mode (24MHz XCLK recommended)"
+            default ESP_CAM_IO_PARL_OV5640_HPM_DIS
             help
-                Enable this option to enable high frame rate captures on higher resolutions OV5640.
-                For example, this option increases 1920x1080 capture to 20fps when enabled, while allowing 15fps at maximum resolution.
-                Disable this option to use the default OV5640 settings.
+                Whether the High Performance Mode of OV5640 is enabled.
+                Enabling this option allows high frame rate captures by modifying the PLL registers.
+                For example, this option allows 20fps at 2560x1440 and 15fps at maximum resolution.
+                User can set this mode at any resolution, or resolutions above 1280x960.
+                If disabled, default OV5640 settings will be used instead.
 
-    endif # ESP_CAM_IO_PARL_OV5640
+            config ESP_CAM_IO_PARL_OV5640_HPM_ANY_RES
+                bool "Any resolution"
+            config ESP_CAM_IO_PARL_OV5640_HPM_HIGH_RES
+                bool "Resolutions above 1280x960"
+            config ESP_CAM_IO_PARL_OV5640_HPM_DIS
+                bool "Disabled"
+        endchoice
+
+    endif
+
+    menuconfig ESP_CAM_IO_PARL_FRAME_SIZE_AUTO
+        bool "Automatically set frame buffer size on resolution change"
+        default y
+        help
+            Enable this option if you want to automatically set the frame allocation size without setting it manually.
+            For RAW image format, the frame buffer size is simply (width * height * bpp) where bpp is bytes per pixel and it depends on the raw image format used. For example, RGB565 has bpp set to 2 indicating two bytes per pixel.
+            For JPEG image format, user can determine the JPEG buffer size dynamically (bytes) with the formula (width * height * multiplier / divider + padding)
+
+    if ESP_CAM_IO_PARL_FRAME_SIZE_AUTO
+        comment "For JPEG format, the size is calculated by the formula: (width * height * multiplier / divider + padding)"
+
+        config ESP_CAM_IO_PARL_FRAME_SIZE_MUL
+            int "JPEG frame buffer multiplier"
+            range 0 100
+            default 2
+            help
+                Determines the multiplier of the frame buffer size, this can be used to achieve precise value if paired with the divider.
+
+        config ESP_CAM_IO_PARL_FRAME_SIZE_DIV
+            int "JPEG frame buffer divider"
+            range 1 100
+            default 9
+            help
+                Determines the divider of the frame buffer size, this can be used to achieve precise value if paired with the multiplier.
+
+        config ESP_CAM_IO_PARL_FRAME_SIZE_PADDING
+            int "JPEG frame buffer padding (bytes)"
+            range 0 2519424
+            default 4096
+            help
+                After the resulting value by the multiplier/divider, the padding bytes can reduce the JPEG buffer overflow warning on lower JPEG resolutions.
+                If multiplier is set to 0, the resulting frame buffer size will be equal to the padding value.
+    endif
 
     choice ESP_CAM_IO_PARL_SCCB_I2C_PORT
         bool "I2C peripheral to use for SCCB"
         default ESP_CAM_IO_PARL_SCCB_I2C_PORT0
+        help
+            Choose what I2C port to be used for SCCB. LP I2C is also supported, refer to the datasheet for each SoC LP I2C pins.
 
         config ESP_CAM_IO_PARL_SCCB_I2C_PORT0
             bool "I2C0"

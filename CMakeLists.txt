@@ -12,10 +12,9 @@ set(include_dirs
 
 if(idf_version VERSION_GREATER_EQUAL "5.3" AND (IDF_TARGET STREQUAL "esp32c6" OR IDF_TARGET STREQUAL "esp32h2" OR IDF_TARGET STREQUAL "esp32p4" OR IDF_TARGET STREQUAL "esp32c5" OR IDF_TARGET STREQUAL "esp32h4"))
     set(srcs
-        driver/esp_camera_sensor.c
+        driver/esp_cam_sensor_io_parl.c
         driver/esp_cam_io_parl.c
         driver/sccb.c
-        driver/sensor.c
         driver/xclk.c
 
         sensors/ov2640.c
@@ -24,7 +23,7 @@ if(idf_version VERSION_GREATER_EQUAL "5.3" AND (IDF_TARGET STREQUAL "esp32c6" OR
         sensors/nt99141.c
     )
 
-    set(priv_requires esp_driver_ledc esp_driver_parlio esp_driver_i2c esp_timer freertos nvs_flash)
+    set(priv_requires esp_driver_ledc esp_driver_i2c esp_timer freertos nvs_flash)
 
     if (idf_version VERSION_GREATER_EQUAL "6.0")
         list(APPEND priv_requires esp_driver_gpio)
@@ -35,6 +34,6 @@ idf_component_register(
     SRCS ${srcs}
     INCLUDE_DIRS ${include_dirs}
     PRIV_INCLUDE_DIRS ${priv_include_dirs}
-    REQUIRES driver
+    REQUIRES esp_driver_parlio
     PRIV_REQUIRES ${priv_requires}
 )

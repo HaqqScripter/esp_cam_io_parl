@@ -39,8 +39,42 @@ The following table shows the circumstances for each target. OV5640 and OV3660 c
 
 - It is recommended to have PSRAM installed and enabled for higher resolutions. Therefore, the ESP32-H2 is not recommended for image streaming due to its lack of PSRAM support and limited internal RAM. The ESP32-C6 can handle resolutions up to SVGA (tested with Wi-Fi enabled and a streaming web server, XGA can be reached with some tweaks).
 - This component currently only accepts JPEG image inputs from DVP sensors due to the limitations of the Parallel IO driver for some targets (e.g. ESP32-H2 and ESP32-C5). As a result, it uses software delimiter with PCLK gating to allow streaming JPEG image from the following image sensors (except OV2640 & NT99141).
-- Currently only OV3660 and OV5640 sensors are implemented to have gated PCLK signals. OV2640 & NT99141 requires the target to have valid signals (e.g. ESP32-C6 and ESP32-P4) so it can properly interface with the following sensor. It is highly recommended to use OV5640 or OV3660 for targets with limited data width.
+- Currently only OV3660 and OV5640 sensors are implemented to have gated PCLK signals. OV2640 & NT99141 requires the target to have valid signals (e.g. ESP32-C6 and ESP32-P4) so it can properly interface with the following sensor. It is highly recommended to use OV5640 or OV3660 for targets with limited data width. But beware that JPEG frames tend to glitch when PCLK is gated, especially when changing resolutions.
 - This component does not utilize VSYNC signals for controlling frames at the moment, support for receiving raw data will be possible if it gets implemented. VSYNC pin will be added as a part of ETM trigger or pulse delimiter for the Parallel IO peripheral for low latency.
+
+## DVP Port Configurations
+
+**esp_cam_io_parl** supports DVP camera sensors with minimal GPIO resources possible. Each cases have their own limitations.
+
+### 8-bit DVP (ESP32-C5/C6/H2/H4/P4):
+| Situation | GPIO pins used | Pin description | Image format | Camera sensors | Support status |
+| --------- | -------------- | --------------- | ------------ | -------------- | -------------- |
+| Case 1 | 9 | D0-D7<br>PCLK   | JPEG | OV3660<br>OV5640 | ✅ Fully implemented |
+| Case 2 | 10 | D0-D7<br>PCLK<br>HREF/HSYNC | JPEG | OV2640<br>NT99141<br>OV3660<br>OV5640 | ⚠️ Partially implemented (Currently `parlio_rx.h` driver doesn't allow HSYNC signal to be served as a data signal at the maximum bit width, while it is stated that HREF can not be used at the maximum bit width) |
+| Case 3 | 10 | D0-D7<br>PCLK<br>VSYNC | JPEG<br>RGB565<br>YUV422<br>GRAYSCALE | OV3660<br>OV5640 | ❌ Not implemented (Same reason as Case 2, only a maximum of 16-bit width targets allows for 8-bit data with VSYNC) |
+| Case 4 | 11 | D0-D7<br>PCLK<br>HREF/HSYNC<br>VSYNC |JPEG<br>RGB565<br>YUV422<br>GRAYSCALE | OV2640<br>NT99141<br>OV3660<br>OV5640 | ❌ Not implemented |
+
+#### Notes
+* Cases 1 to 3 are fully used by the PARLIO RX peripheral.
+* Case 1 and 2 will force JPEG mode to be enabled. In this mode, CPU usage is heavily involved on software framing to parse the JPEG data.
+* On case 4, VSYNC will be bound to ETM or Interrupt.
+* ESP32-C5/H2/H4 only allows HSYNC (pulse delimiter) on 8-bit width. HREF will operate as HSYNC.
+* ESP32-C6/P4 allows HREF (level delimiter) to be used if defined, otherwise use HSYNC.
+
+### 16-bit DVP (ESP32-C6/P4):
+| Situation | GPIO pins used | Pin description | Image format | Support status |
+| --------- | -------------- | --------------- | ------------ | -------------- | 
+| Case 1 | 17 | D0-D15<br>PCLK | JPEG | ✅ Fully implemented |
+| Case 2 | 18 | D0-D15<br>PCLK<br>HREF/HSYNC | JPEG | ❌ Not implemented (Currently `parlio_rx.h` driver doesn't allow HSYNC signal to be served as a data signal at the maximum bit width) |
+| Case 3 | 18 | D0-D15<br>PCLK<br>VSYNC | JPEG<br>RGB565<br>YUV422<br>GRAYSCALE | ❌ Not implemented (Same reason as Case 2, only a maximum of 16-bit width targets allows for 8-bit VSYNC pulses) |
+| Case 4 | 19 | D0-D15<br>PCLK<br>HREF/HSYNC<br>VSYNC | JPEG<br>RGB565<br>YUV422<br>GRAYSCALE | ❌ Not implemented |
+
+#### Notes
+* Cases 1 to 3 are fully used by the PARLIO RX peripheral.
+* Typically MCU-to-MCU communication is used as most DVP camera doesn't support 16-bit width.
+* Case 1 and 2 will force JPEG mode to be enabled. In this mode, CPU usage is heavily involved on software framing to parse the JPEG data.
+* On case 4, VSYNC will be bound to ETM or Interrupt.
+* ESP32-C6/P4 only allows HSYNC (pulse delimiter) on 16-bit width. HREF will operate as HSYNC.
 
 ## Additional Notes
 
@@ -65,7 +99,6 @@ idf.py add-dependency --git "https://github.com/HaqqScripter/esp_cam_io_parl.git
 - If possible, enable PSRAM in `menuconfig` (also set Flash and PSRAM frequencies to the maximum speed available for the following targets for optimal performance)
 - Include the component in your main code:
   ```c
-  #include "esp_camera_sensor.h"
   #include "esp_cam_io_parl.h"
   ```
 
@@ -87,7 +120,6 @@ This component will be released as a library.
 #include "esp_timer.h"
 
 #include "esp_cam_io_parl.h"
-#include "esp_camera_sensor.h"
 
 static const char *TAG = "simple_camera_capture";
 
@@ -112,9 +144,10 @@ static const char *TAG = "simple_camera_capture";
 #define CAM_PCLK_PIN 12
 
 // Save the frame buffer in PSRAM, or set it to MALLOC_CAP_INTERNAL for targets without PSRAM support
-#define FRAME_BUFFER_CAPS MALLOC_CAP_INTERNAL
+#define FRAME_BUFFER_CAPS MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT
 
-static esp_cam_io_parl_handle_t esp_cam_io_parl_handle;
+static esp_cam_io_parl_handle_t esp_cam_dvp_handle;
+static esp_cam_sensor_io_parl_handle_t esp_cam_sensor_handle;
 
 typedef struct {
     size_t size;   //number of values used for filtering
@@ -155,37 +188,36 @@ void camera_task(void *args) {
     while(true) {
         int64_t last_frame = esp_timer_get_time();
         esp_cam_io_parl_trans_t image;
-        if (esp_cam_io_parl_receive(esp_cam_io_parl_handle, &image, 5000) != ESP_OK) {
+        if (esp_cam_io_parl_receive(esp_cam_dvp_handle, &image, 5000) != ESP_OK) {
             ESP_LOGE(TAG, "Camera capture failed");
         } else {
             int64_t frame_time = esp_timer_get_time() - last_frame;
             frame_time /= 1000;
             uint32_t avg_frame_time = ra_filter_run(&ra_filter, frame_time);
             ESP_LOGI(TAG, "JPEG: %uB %ums (%.1ffps), AVG: %ums (%.1ffps)", (uint32_t)(image.length), (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time, avg_frame_time, 1000.0 / avg_frame_time);
-            esp_cam_io_parl_free_buffer(image);
+            esp_cam_io_parl_free_buffer(&image);
         }
     }
 }
 
 void app_main(void) {
     // Camera sensor configuration
-    static esp_camera_sensor_config_t camera_sensor_config = {
+    static esp_cam_sensor_io_parl_config_t esp_cam_sensor_io_parl_config = {
         .pwdn_io = CAM_PWDN_PIN,
         .reset_io = CAM_RESET_PIN,
         .xclk_io = CAM_XCLK_PIN,
         .xclk_hz = 20000000,
         .sda_io = CAM_SDA_PIN,
         .scl_io = CAM_SCL_PIN,
-        .ledc_timer = LEDC_TIMER_0,
-        .ledc_channel = LEDC_CHANNEL_0,
-        .pixel_format = PIXFORMAT_JPEG, // esp_cam_io_parl only supports JPEG images at the moment
-        .frame_size = FRAMESIZE_HVGA,
+        .pixel_format = ESP_CAM_IO_PARL_PIXFORMAT_JPEG, // esp_cam_io_parl only supports JPEG images at the moment
+        .frame_size = ESP_CAM_IO_PARL_FRAMESIZE_HVGA,
         .jpeg_quality = 8,
     };
     // DVP port configuration
     static esp_cam_io_parl_config_t esp_cam_io_parl_config = {
         .data_width = 8,
-        .queue_frames = 1,
+        .queue_frames = 2,
+        .frame_heap_caps = FRAME_BUFFER_CAPS,
         .pclk_io = CAM_PCLK_PIN,
         .de_io = CAM_HREF_PIN,
         .hsync_io = CAM_HSYNC_PIN,
@@ -201,26 +233,23 @@ void app_main(void) {
             CAM_D7_PIN,
         },
         .flags = {
-            .free_clk = true,
             .allow_pd = true,
         },
     };
-    esp_err_t err = esp_camera_sensor_init(&camera_sensor_config);
+    esp_err_t err = esp_cam_new_sensor_io_parl(&esp_cam_sensor_io_parl_config, &esp_cam_sensor_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Camera init failed with error 0x%x", err);
         return;
     }
-    camera_sensor_t *sensor = esp_camera_sensor_get();
-    ESP_LOGI(TAG, "Camera detected! Current quality = %u", sensor->status.quality);
+    ESP_LOGI(TAG, "Camera detected! Current quality = %u", esp_cam_sensor_handle->status.quality);
 
-    sensor->set_vflip(sensor, true); // Adjust if the image is flipped vertically
-    sensor->set_hmirror(sensor, false); // Adjust if the image is flipped horizontally
+    esp_cam_sensor_handle->set_vflip(esp_cam_sensor_handle, true); // Adjust if the image is flipped vertically
+    esp_cam_sensor_handle->set_hmirror(esp_cam_sensor_handle, false); // Adjust if the image is flipped horizontally
 
-    ESP_ERROR_CHECK(esp_cam_new_io_parl(&esp_cam_io_parl_config, &esp_cam_io_parl_handle));
-    ESP_ERROR_CHECK(esp_cam_io_parl_enable(esp_cam_io_parl_handle, true));
+    ESP_ERROR_CHECK(esp_cam_new_io_parl(&esp_cam_io_parl_config, &esp_cam_dvp_handle));
+    ESP_ERROR_CHECK(esp_cam_io_parl_enable(esp_cam_dvp_handle, true));
 
-    image_info_t *image = esp_camera_sensor_get_image(); // Prepare the frame allocation
-    ESP_ERROR_CHECK(esp_cam_io_parl_set_alloc_size(esp_cam_io_parl_handle, image->width * image->height / 4 + 2048, FRAME_BUFFER_CAPS));
+    ESP_ERROR_CHECK(esp_cam_sensor_io_parl_connect(esp_cam_dvp_handle)); // Attach the DVP port
 
     ra_filter_init(&ra_filter, 20);
 
@@ -246,7 +275,6 @@ void app_main(void) {
 #include "sdkconfig.h"
 
 #include "esp_cam_io_parl.h"
-#include "esp_camera_sensor.h"
 
 static const char *TAG = "camera_stream_to_http";
 
@@ -271,7 +299,7 @@ static const char *TAG = "camera_stream_to_http";
 #define CAM_PCLK_PIN 2
 
 // Save the frame buffer in PSRAM, or set it to MALLOC_CAP_INTERNAL for targets without PSRAM support
-#define FRAME_BUFFER_CAPS MALLOC_CAP_SPIRAM
+#define FRAME_BUFFER_CAPS MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
 
 // Wi-Fi details
 #define ESP_WIFI_SSID "camera@2.4GHz"
@@ -287,7 +315,8 @@ static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %
 httpd_handle_t capture_httpd = NULL;
 httpd_handle_t stream_httpd = NULL;
 
-static esp_cam_io_parl_handle_t esp_cam_io_parl_handle;
+static esp_cam_io_parl_handle_t esp_cam_dvp_handle;
+static esp_cam_sensor_io_parl_handle_t esp_cam_sensor_handle;
 
 typedef struct {
     size_t size;   //number of values used for filtering
@@ -390,7 +419,7 @@ static esp_err_t capture_handler(httpd_req_t *req) {
     esp_err_t res = ESP_OK;
     int64_t fr_start = esp_timer_get_time();
     esp_cam_io_parl_trans_t frame;
-    if (esp_cam_io_parl_receive(esp_cam_io_parl_handle, &frame, 5000) != ESP_OK) {
+    if (esp_cam_io_parl_receive(esp_cam_dvp_handle, &frame, 5000) != ESP_OK) {
         ESP_LOGE(TAG, "Camera capture failed");
         httpd_resp_send_500(req);
         return ESP_FAIL;
@@ -403,7 +432,7 @@ static esp_err_t capture_handler(httpd_req_t *req) {
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
 
     res = httpd_resp_send(req, (const char *)frame.buffer, frame.length);
-    esp_cam_io_parl_free_buffer(frame);
+    esp_cam_io_parl_free_buffer(&frame);
 
     int64_t fr_end = esp_timer_get_time();
     ESP_LOGI(TAG, "JPG: %uB %ums", frame_length, (uint32_t)((fr_end - fr_start) / 1000));
@@ -426,7 +455,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     while (true) {
         int64_t last_frame = esp_timer_get_time();
         esp_cam_io_parl_trans_t image;
-        if (esp_cam_io_parl_receive(esp_cam_io_parl_handle, &image, 5000) != ESP_OK) {
+        if (esp_cam_io_parl_receive(esp_cam_dvp_handle, &image, 5000) != ESP_OK) {
             ESP_LOGE(TAG, "Camera capture failed");
             res = ESP_FAIL;
         } else {
@@ -444,7 +473,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
             res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
         }
         if (image.buffer) {
-            esp_cam_io_parl_free_buffer(image);
+            esp_cam_io_parl_free_buffer(&image);
             _jpg_buf = NULL;
         } else if (_jpg_buf) {
             free(_jpg_buf);
@@ -515,23 +544,22 @@ void app_main(void) {
     ESP_ERROR_CHECK(ret);
 
     // Camera sensor configuration
-    static esp_camera_sensor_config_t camera_sensor_config = {
+    static esp_cam_sensor_io_parl_config_t esp_cam_sensor_io_parl_config = {
         .pwdn_io = CAM_PWDN_PIN,
         .reset_io = CAM_RESET_PIN,
         .xclk_io = CAM_XCLK_PIN,
         .xclk_hz = 20000000,
         .sda_io = CAM_SDA_PIN,
         .scl_io = CAM_SCL_PIN,
-        .ledc_timer = LEDC_TIMER_0,
-        .ledc_channel = LEDC_CHANNEL_0,
-        .pixel_format = PIXFORMAT_JPEG, // esp_cam_io_parl only supports JPEG images at the moment
-        .frame_size = FRAMESIZE_QVGA,
+        .pixel_format = ESP_CAM_IO_PARL_PIXFORMAT_JPEG, // esp_cam_io_parl only supports JPEG images at the moment
+        .frame_size = ESP_CAM_IO_PARL_FRAMESIZE_QVGA,
         .jpeg_quality = 8,
     };
     // DVP port configuration
     static esp_cam_io_parl_config_t esp_cam_io_parl_config = {
         .data_width = 8,
-        .queue_frames = 1,
+        .queue_frames = 2,
+        .frame_heap_caps = FRAME_BUFFER_CAPS,
         .pclk_io = CAM_PCLK_PIN,
         .de_io = CAM_HREF_PIN,
         .hsync_io = CAM_HSYNC_PIN,
@@ -547,26 +575,23 @@ void app_main(void) {
             CAM_D7_PIN,
         },
         .flags = {
-            .free_clk = true,
             .allow_pd = true,
         },
     };
-    esp_err_t err = esp_camera_sensor_init(&camera_sensor_config);
+    esp_err_t err = esp_cam_new_sensor_io_parl(&esp_cam_sensor_io_parl_config, &esp_cam_sensor_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Camera init failed with error 0x%x", err);
         return;
     }
-    camera_sensor_t *sensor = esp_camera_sensor_get();
     ESP_LOGI(TAG, "Camera detected! Current quality = %u", sensor->status.quality);
 
-    sensor->set_vflip(sensor, true); // Adjust if the image is flipped vertically
-    sensor->set_hmirror(sensor, false); // Adjust if the image is flipped horizontally
+    esp_cam_sensor_handle->set_vflip(esp_cam_sensor_handle, true); // Adjust if the image is flipped vertically
+    esp_cam_sensor_handle->set_hmirror(esp_cam_sensor_handle, false); // Adjust if the image is flipped horizontally
 
-    ESP_ERROR_CHECK(esp_cam_new_io_parl(&esp_cam_io_parl_config, &esp_cam_io_parl_handle));
-    ESP_ERROR_CHECK(esp_cam_io_parl_enable(esp_cam_io_parl_handle, true));
+    ESP_ERROR_CHECK(esp_cam_new_io_parl(&esp_cam_io_parl_config, &esp_cam_dvp_handle));
+    ESP_ERROR_CHECK(esp_cam_io_parl_enable(esp_cam_dvp_handle, true));
 
-    image_info_t *image = esp_camera_sensor_get_image(); // Prepare the frame allocation
-    ESP_ERROR_CHECK(esp_cam_io_parl_set_alloc_size(esp_cam_io_parl_handle, image->width * image->height / 4 + 2048, FRAME_BUFFER_CAPS));
+    ESP_ERROR_CHECK(esp_cam_sensor_io_parl_connect(esp_cam_dvp_handle)); // Attach DVP port
 
     wifi_init_softap();
     start_camera_server();
@@ -585,7 +610,15 @@ CONFIG_ESP_CAM_IO_PARL_OV2640 y // Probes OV2640. Targets without valid signals 
 CONFIG_ESP_CAM_IO_PARL_OV3660 y // Probes OV3660
 CONFIG_ESP_CAM_IO_PARL_OV5640 y // Probes OV5640
 CONFIG_ESP_CAM_IO_PARL_OV5640_AF n // Allows OV5640 with Autofocus function
-CONFIG_ESP_CAM_IO_PARL_OV5640_HPM n // [Experimental] Enables high performance on OV5640 for resolutions above 1280x960, this will allow 15FPS at full resolution, while 20FPS at 2560x1440 (QHD) resolution. Works best with 24MHz XCLK
+CONFIG_ESP_CAM_IO_PARL_OV5640_HPM n // [Experimental] Enables high performance on OV5640 for increased frame rate, this will allow 15FPS at full resolution, while 20FPS at 2560x1440 (QHD) resolution. Works best with 24MHz XCLK
+ESP_CAM_IO_PARL_OV5640_HPM_ANY_RES n // Fully enables High Performance Mode on all resolutions, allowing 30FPS 1280x960 captures and 40FPS for 1280x720.
+ESP_CAM_IO_PARL_OV5640_HPM_HIGH_RES n // Only enables high performance on OV5640 for resolutions above 1280x960.
+ESP_CAM_IO_PARL_OV5640_HPM_DIS y // Disable High Performance Mode on OV5640 by default
+
+ESP_CAM_IO_PARL_FRAME_SIZE_AUTO y // Automatically set frame buffer size on resolution change, for JPEG images, user can adjust the frame buffer size dynamically with the formula (width * height * multiplier / divider + padding)
+ESP_CAM_IO_PARL_FRAME_SIZE_MUL 2 // Represents the multiplier
+ESP_CAM_IO_PARL_FRAME_SIZE_DIV 9 // Represents the divider
+ESP_CAM_IO_PARL_FRAME_SIZE_PADDING 4096 // Represents the padding
 
 CONFIG_CAMERA_PAYLOAD_BUFFER_SIZE 0x8000 // Payload size: 32768
 CONFIG_ESP_CAM_IO_PARL_SCCB_I2C_PORT0 y // Use the I2C0 port by default
@@ -614,22 +647,23 @@ At the moment, only the OV5640 camera sensor was measured. To accquire higher fr
 | 176x144                                            | 5:4           | ~28FPS          |
 
 # Experimental Features (High Peformance Mode)
-- Currently, OV5640 has settings that allow 15FPS capture at full resolution (2592x1944), and 20FPS at QHD (2560x1440) by enabling `CONFIG_ESP_CAM_IO_PARL_OV5640_HPM` and it will be visible only if `CONFIG_IDF_EXPERIMENTAL_FEATURES` configuration is enabled. This feature works best with a stable 24MHz XCLK.
-- Please ensure that the bandwidth is sufficient to transmit the image (over Wi-Fi, SD Card, or another target), it is preferred that UDP transport over Wi-Fi is used. This is true for high quality JPEG images at larger resolutions as they consume large amount of file size. Additionally, higher frame rates can consume more current.
+- Currently, OV5640 has settings that allow 15FPS capture at full resolution (2592x1944), and 20FPS at QHD (2560x1440) by enabling `CONFIG_ESP_CAM_IO_PARL_OV5640_HPM`. User can set whether the high frame rate is only needed for resolutions above 1280x960 by selecting `ESP_CAM_IO_PARL_OV5640_HPM_HIGH_RES`, or unlock faster frame rates at all resolutions by selecting `ESP_CAM_IO_PARL_OV5640_HPM_ANY_RES` to achieve up to 30FPS 1280x960 and 40FPS 1280x720. This feature works best with a stable 24MHz XCLK.
+- Please ensure that the bandwidth is sufficient to transmit the image (over Wi-Fi, SD Card, or another target), it is preferred that UDP transport over Wi-Fi is used. This is true for high quality JPEG images at larger resolutions as they consume large amount of file size. Additionally, higher frame rates can consume more current, and produces excessive heat. Consider applying a heat sink for the camera sensor.
 
 # API Reference
 
-## `esp_camera_sensor`
-ESP Camera Sensor component included in this package to interface with OV2640, OV3660 and OV5640 camera sensors. It is a modified version of `esp_camera.h` component by Espressif.
+## `esp_cam_sensor_io_parl`
+ESP Camera Sensor (PARLIO) component included in this package to interface with NT99141, OV2640, OV3660 and OV5640 camera sensors.
 ```c
-#include "esp_camera_sensor.h"
+#include "esp_cam_sensor_io_parl.h"
 ```
+<b>Note:</b> If `esp_cam_io_parl.h` header is included in the user application, there is no need to include this component.
 
 ### Data Types
 
-#### `esp_camera_sensor_config_t`
+#### `esp_cam_sensor_io_parl_config_t`
 
-Configuration structure for camera sensor initialization.
+> Configuration structure for camera sensor initialization.
 
 | Field           | Type                 | Description                                 |
 | --------------- | -------------------- | ------------------------------------------- |
@@ -639,92 +673,114 @@ Configuration structure for camera sensor initialization.
 | `sda_io`        | `gpio_num_t`         | GPIO pin for camera SDA line                |
 | `scl_io`        | `gpio_num_t`         | GPIO pin for camera SCL line                |
 | `xclk_hz`       | `uint32_t`           | XCLK frequency in Hz                        |
-| `pixel_format`  | `camera_pixformat_t` | Pixel format (`PIXFORMAT_*`)                |
-| `frame_size`    | `camera_framesize_t` | Frame size (`FRAMESIZE_*`)                  |
+| `pixel_format`  | `esp_cam_sensor_io_parl_pixformat_t` | Pixel format (`PIXFORMAT_*`)                |
+| `frame_size`    | `esp_cam_sensor_io_parl_framesize_t` | Frame size (`FRAMESIZE_*`)                  |
 | `ledc_timer`    | `ledc_timer_t`       | LEDC timer for XCLK generation              |
 | `ledc_channel`  | `ledc_channel_t`     | LEDC channel for XCLK generation            |
 | `jpeg_quality`  | `int`                | JPEG quality (0–63, lower = higher quality) |
 
-#### `image_info_t`
+#### `esp_cam_sensor_io_parl_handle_t`
 
-Data structure containing image properties.
-
-| Field    | Type                 | Description            |
-| -------- | -------------------- | ---------------------- |
-| `width`  | `size_t`             | Image width in pixels  |
-| `height` | `size_t`             | Image height in pixels |
-| `format` | `camera_pixformat_t` | Pixel format           |
+> **Handle pointer to `esp_cam_sensor_io_parl`.**
 
 ### Functions
 
-#### `esp_camera_sensor_init`
+#### `esp_cam_new_sensor_io_parl`
 ```c
-esp_err_t esp_camera_sensor_init(const esp_camera_sensor_config_t *config);
+esp_err_t esp_cam_new_sensor_io_parl(const esp_cam_sensor_io_parl_config_t *config, esp_cam_sensor_io_parl_handle_t *ret_handle);
 ```
 
-Initialize the camera driver and configure the sensor via SCCB/I2C.
+Initialize the camera sensor interface and configure the sensor via SCCB/I2C.
 
 **Parameters:**
 
 * `config` — Pointer to camera configuration parameters.
+* `ret_handle` — Pointer to camera sensor handle.
 
 **Returns:**
 
 * `ESP_OK` — Success
 * `ESP_ERR_INVALID_ARG` — Invalid parameters
-* `ESP_ERR_CAMERA_NOT_DETECTED` — Sensor not detected
+* `ESP_ERR_NOT_SUPPORTED` — Sensor not detected
 
-#### `esp_camera_sensor_deinit`
+#### `esp_cam_del_sensor_io_parl`
 
 ```c
-esp_err_t esp_camera_sensor_deinit(void);
+esp_err_t esp_cam_del_sensor_io_parl(void);
 ```
 
-Deinitialize the camera driver.
+Deinitialize the camera sensor interface.
 
 **Returns:**
 
 * `ESP_OK` — Success
-* `ESP_ERR_INVALID_STATE` — Driver not initialized
+* `ESP_ERR_INVALID_STATE` — Camera sensor not initialized
 
-#### `esp_camera_sensor_get_image`
-
-```c
-image_info_t *esp_camera_sensor_get_image(void);
-```
-
-Get image resolution information for frame allocation.
-
-**Returns:**
-Pointer to `image_info_t` structure.
-
-#### `esp_camera_sensor_get`
+#### `esp_cam_sensor_io_parl_get_interface`
 
 ```c
-camera_sensor_t *esp_camera_sensor_get(void);
+esp_err_t esp_cam_sensor_io_parl_get_interface(esp_cam_sensor_io_parl_handle_t *esp_cam_sensor_io_parl);
 ```
 
-Get a pointer to the sensor control structure.
-
-**Returns:**
-Pointer to `camera_sensor_t` structure.
-
-#### `esp_camera_sensor_erase_nvs`
-
-```c
-esp_err_t esp_camera_sensor_erase_nvs(const char *key);
-```
-
-Remove camera settings from NVS.
+Gets the pointer to the sensor control interface if it wasn't grabbed on initialization.
 
 **Parameters:**
 
-* `key` — Unique key for camera settings.
+* `esp_cam_sensor_io_parl` — Pointer to camera sensor handle
 
-#### `esp_camera_sensor_save_to_nvs`
+**Returns:**
+
+* `ESP_OK` — Success
+
+#### `esp_cam_sensor_io_parl_frame_info`
 
 ```c
-esp_err_t esp_camera_sensor_save_to_nvs(const char *key);
+esp_err_t esp_cam_sensor_io_parl_frame_info(int *out_width, int *out_height);
+```
+
+Get frame resolution information for manual frame allocation.
+
+**Parameters:**
+
+* `out_width` — Pointer to frame width
+* `out_height` — Pointer to frame height
+
+**Returns:**
+
+* `ESP_OK` — Success
+
+#### `esp_cam_sensor_io_parl_connect`
+
+```c
+esp_err_t esp_cam_sensor_io_parl_connect(esp_cam_io_parl_handle_t esp_cam_io_parl);
+```
+
+Attach the DVP port from `esp_cam_io_parl` interface to apply suitable camera settings with the current DVP port configuration. If `ESP_CAM_IO_PARL_FRAME_SIZE_AUTO` is enabled, then this function will also enable automatic frame size allocation on resolution change.
+
+**Parameters:**
+
+* `esp_cam_io_parl` — DVP interface (esp_cam_io_parl) handle
+
+**Returns:**
+
+* `ESP_OK` — Success
+
+#### `esp_cam_sensor_io_parl_disconnect`
+
+```c
+esp_err_t esp_cam_sensor_io_parl_disconnect(void);
+```
+
+Detach the DVP port from the camera sensor interface.
+
+**Returns:**
+
+* `ESP_OK` — Success
+
+#### `esp_cam_sensor_io_parl_save_to_nvs`
+
+```c
+esp_err_t esp_cam_sensor_io_parl_save_to_nvs(const char *key);
 ```
 
 Save camera settings to NVS.
@@ -733,11 +789,14 @@ Save camera settings to NVS.
 
 * `key` — Unique key for camera settings.
 
+**Returns:**
 
-#### `esp_camera_sensor_load_from_nvs`
+* `ESP_OK` — Success
+
+#### `esp_cam_sensor_io_parl_load_from_nvs`
 
 ```c
-esp_err_t esp_camera_sensor_load_from_nvs(const char *key);
+esp_err_t esp_cam_sensor_io_parl_load_from_nvs(const char *key);
 ```
 
 Load camera settings from NVS.
@@ -746,6 +805,26 @@ Load camera settings from NVS.
 
 * `key` — Unique key for camera settings.
 
+**Returns:**
+
+* `ESP_OK` — Success
+
+#### `esp_cam_sensor_io_parl_erase_nvs`
+
+```c
+esp_err_t esp_cam_sensor_io_parl_erase_nvs(const char *key);
+```
+
+Remove camera settings from NVS.
+
+**Parameters:**
+
+* `key` — Unique key for camera settings.
+
+**Returns:**
+
+* `ESP_OK` — Success
+
 ---
 
 ## `esp_cam_io_parl`
@@ -753,11 +832,12 @@ ESP Parallel IO Camera component to interface with the DVP port of the following
 ```c
 #include "esp_cam_io_parl.h"
 ```
+<b>Note:</b> `esp_cam_sensor_io_parl.h` header is included.
 ### Data Types
 
 #### `esp_cam_io_parl_pclk_edge_t`
 
-> **PCLK edge configuration for sampling incoming data.**
+> PCLK edge configuration for sampling incoming data.
 
 | Enumerator                 | Description                           |
 | -------------------------- | ------------------------------------- |
@@ -766,29 +846,28 @@ ESP Parallel IO Camera component to interface with the DVP port of the following
 
 #### `esp_cam_io_parl_config_t`
 
-> **Configuration structure for `esp_cam_io_parl`.**
+> Configuration structure for `esp_cam_io_parl`.
 
 | Field                | Type           | Description                                                 |
 | -------------------- | -------------- | ----------------------------------------------------------- |
 | `data_width`         | `size_t`       | DVP data width (8 or 16 bits depending on SoC capabilities) |
 | `queue_frames`       | `size_t`       | Number of frames to be queued                               |
+| `frame_heap_caps`    | `uint32_t`     | Determines the frame buffer location on initialization      |
 | `pclk_io`            | `gpio_num_t`   | PCLK GPIO pin                                               |
 | `pclk_sample_edge`   | `esp_cam_io_parl_pclk_edge_t` | Sampling edge (`ESP_CAM_IO_PARL_PCLK_NEG` or `ESP_CAM_IO_PARL_PCLK_POS`)                              |
-| `vsync_io`           | `gpio_num_t`   | VSYNC GPIO pin *(Not implemented)*                          |
+| `vsync_io`           | `gpio_num_t`   | VSYNC GPIO pin (Not implemented)                            |
 | `de_io`              | `gpio_num_t`   | DE (HREF) GPIO pin, set to -1 if unused                     |
 | `hsync_io`           | `gpio_num_t`   | HSYNC GPIO pin, set to -1 if unused                         |
 | `data_io[]`          | `gpio_num_t`   | Data line GPIOs                                             |
-| `input_type`         | `esp_cam_io_parl_input_format_t`   | Input color format (Not implemented)    |
-| `flags.invert_vsync` | `bool` | Invert VSYNC *(Not implemented)*                            |
+| `flags.invert_vsync` | `bool` | Invert VSYNC (Not implemented)                              |
 | `flags.invert_de`    | `bool` | Invert DE pin (active low)                                  |
 | `flags.invert_hsync` | `bool` | Invert HSYNC pin (active on rising edge)                    |
-| `flags.jpeg_en`      | `bool` | JPEG input expected *(default)*                             |
-| `flags.free_clk`     | `bool` | PCLK is free-running                                        |
+| `flags.jpeg_en`      | `bool` | JPEG input expected (default)                               |
 | `flags.allow_pd`     | `bool` | Allow power down                                            |
 
 #### `esp_cam_io_parl_trans_t`
 
-> **Transaction buffer structure for received frames.**
+> Transaction buffer structure for received frames.
 
 | Field    | Type       | Description             |
 | -------- | ---------- | ----------------------- |
@@ -797,7 +876,7 @@ ESP Parallel IO Camera component to interface with the DVP port of the following
 
 #### `esp_cam_io_parl_handle_t`
 
-> **Handle pointer to `esp_cam_io_parl`.**
+> Handle pointer to `esp_cam_io_parl`.
 
 ### Functions
 
@@ -845,7 +924,7 @@ Sets the allocation size for the frame buffer.
 **Parameters:**
 
 * `esp_cam_io_parl` — Handle that was created with `esp_cam_new_io_parl`
-* `alloc_size` — Frame allocation size (JPEG recommended: `width * height / 4 + 2048`).
+* `alloc_size` — Frame allocation size (JPEG default size calculation: `width * height / 4.5 + 4096`).
 * `heap_caps` — Memory type (`MALLOC_CAP_INTERNAL` or `MALLOC_CAP_SPIRAM`).
 
 **Returns:**
@@ -858,7 +937,7 @@ Sets the allocation size for the frame buffer.
 esp_err_t esp_cam_io_parl_enable(esp_cam_io_parl_handle_t esp_cam_io_parl, bool reset_queue);
 ```
 
-Enables frame reception.
+Enables frame reception. This will also start the internal camera task for managing frame buffers.
 
 **Parameters:**
 
@@ -876,7 +955,7 @@ Enables frame reception.
 esp_err_t esp_cam_io_parl_disable(esp_cam_io_parl_handle_t esp_cam_io_parl)
 ```
 
-Disables frame reception.
+Disables frame reception. This will stop the camera task.
 
 **Parameters:**
 
@@ -934,7 +1013,7 @@ Receives a frame from ISR context.
 
 #### `esp_cam_io_parl_free_buffer`
 ```c
-esp_err_t esp_cam_io_parl_free_buffer(esp_cam_io_parl_trans_t frame);
+esp_err_t esp_cam_io_parl_free_buffer(esp_cam_io_parl_trans_t *frame);
 ```
 
 Frees a previously received frame buffer.

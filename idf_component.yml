@@ -1,4 +1,4 @@
-version: 0.1.0-beta.7.1
+version: 0.1.0-beta.8
 license: Apache-2.0
 description: Interface DVP cameras with the Parallel IO peripheral on ESP32 compatible driver for OV2640, NT99141, OV3660 and OV5640 image sensors.
 url: https://github.com/HaqqScripter/esp_cam_io_parl
