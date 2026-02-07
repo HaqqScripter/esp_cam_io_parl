@@ -10,6 +10,7 @@
 - Added `simple_camera_capture_example` and `camera_web_server_example` component examples.
 - Renamed `simple_camera_stream_example` to `simple_camera_http_stream_example`. Now `esp_wifi_remote` and `esp_hosted` were added as dependencies for targets without Wi-Fi.
 - Changed minimum ESP-IDF version requirement to v5.4.
+- Added more descriptions to some of the new `esp_cam_sensor_io_parl` functions.
 - Readded `esp32h4` target to `idf_component.yml`.
 
 ## v0.1.0-beta.8
