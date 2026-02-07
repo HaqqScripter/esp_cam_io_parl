@@ -28,11 +28,21 @@ typedef enum {
 } esp_cam_io_parl_sampling_mode_t;
 
 /**
+ * @brief Queue fill mode for esp_cam_io_parl
+ */
+typedef enum {
+    ESP_CAM_IO_PARL_QUEUE_LATEST, /*!< Appends the frame buffer to the queue with latest frames, while old frames will be replaced. So to guarantee that the user always receive the most recent frames. */
+    ESP_CAM_IO_PARL_QUEUE_PRESERVE, /*!< Appends the frame buffer to the queue when it is not full, so the user may receive old frames. */
+} esp_cam_io_parl_queue_fill_mode_t;
+
+/**
  * @brief esp_cam_io_parl configuration
  */
 typedef struct {
     size_t data_width; /*!< DVP data width. ESP32-C5 & ESP32-H2 only supports up to 8 data lines and does not support valid signals. ESP32-C6 & ESP32-P4 supports up to 16 data lines, while only up to 8 data lines usable with DE or HSYNC pins used on the following targets */
     size_t queue_frames; /*!< Number of frames to be queued */
+
+    esp_cam_io_parl_queue_fill_mode_t fill_mode; /*!< Whether the queue accepts new frames, or append only when there is a free slot */
     uint32_t frame_heap_caps; /*!< Determines where would be the frame buffer stored */
 
     gpio_num_t pclk_io; /*!< PCLK GPIO pin */

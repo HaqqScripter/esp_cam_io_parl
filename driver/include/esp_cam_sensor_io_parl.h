@@ -260,10 +260,12 @@ typedef struct esp_cam_sensor_io_parl_t {
  * Currently this function can only be called once and there is
  * no way to de-initialize this module.
  *
- * @param[in]  config   esp_cam_sensor_io_parl configuration
- * @param[out] ret_handle   Returned esp_cam_io_parl handle
+ * @param[in]  config       esp_cam_sensor_io_parl configuration
+ * @param[out] ret_handle   Returned esp_cam_sensor_io_parl handle
  * @return
- *      - ESP_ERR_INVALID_ARG       Invalid arguments in the parameter list or the esp_cam_sensor_io_parl configuration
+ *      - ESP_ERR_INVALID_STATE     Camera sensor interface has already initialized
+ *      - ESP_ERR_NOT_SUPPORTED     Camera is not supported and it does not support JPEG if the current format is selected as JPEG
+ *      - ESP_ERR_NOT_ALLOWED       Failed to set the camera sensor frame size
  *      - ESP_ERR_NO_MEM            Not enough memory for the esp_cam_sensor_io_parl resources
  *      - ESP_OK                    Success on allocating esp_cam_sensor_io_parl
  */
@@ -273,22 +275,51 @@ esp_err_t esp_cam_new_sensor_io_parl(const esp_cam_sensor_io_parl_config_t *conf
  * @brief Deinitialize the camera driver
  *
  * @return
- *      - ESP_ERR_INVALID_STATE     The driver hasn't been initialized yet
+ *      - ESP_ERR_NOT_FOUND         The camera sensor interface does not exist as it wasn't initialized
  *      - ESP_OK                    Success on removing esp_cam_sensor_io_parl
  */
 esp_err_t esp_cam_del_sensor_io_parl(void);
 
-
+/**
+ * @brief Gets the pointer to the sensor control interface if it wasn't grabbed on initialization
+ *
+ * @param[out] esp_cam_sensor_io_parl   Returned esp_cam_sensor_io_parl handle
+ * @return
+ *      - ESP_ERR_NOT_FOUND         The camera sensor interface does not exist as it wasn't initialized
+ *      - ESP_OK                    Success on allocating esp_cam_sensor_io_parl handle
+ */
 esp_err_t esp_cam_sensor_io_parl_get_interface(esp_cam_sensor_io_parl_handle_t *esp_cam_sensor_io_parl);
 
 /**
- * @brief Obtain image resolution for frame allocation.
+ * @brief Get frame resolution information for manual frame allocation
  *
- * @return pointer to the image resolution
+ * @param[out]  out_width    Pointer to frame width
+ * @param[out]  out_height   Pointer to frame height
+ * @return
+ *      - ESP_ERR_NOT_FOUND         The camera sensor interface does not exist as it wasn't initialized
+ *      - ESP_OK                    Success on receiving the frame size
  */
 esp_err_t esp_cam_sensor_io_parl_frame_info(int *out_width, int *out_height);
 
+/**
+ * @brief Connect the DVP port to the camera sensor interface
+ *
+ * @param[in]  esp_cam_io_parl   esp_cam_io_parl handle that was created
+ * @return
+ *      - ESP_ERR_NOT_FOUND         The camera sensor interface does not exist as it wasn't initialized or an empty esp_cam_io_parl handle
+ *      - ESP_ERR_INVALID_STATE     DVP port has already been connected or it is not enabled
+ *      - ESP_OK                    Success on attaching the DVP port
+ */
 esp_err_t esp_cam_sensor_io_parl_connect(esp_cam_io_parl_handle_t esp_cam_io_parl);
+
+/**
+ * @brief Disconnect the DVP port from the camera sensor interface
+ *
+ * @return
+ *      - ESP_ERR_NOT_FOUND         The camera sensor interface does not exist as it wasn't initialized
+ *      - ESP_ERR_INVALID_STATE     DVP port has already been disconnected
+ *      - ESP_OK                    Success on disconnecting the DVP port
+ */
 esp_err_t esp_cam_sensor_io_parl_disconnect(void);
 
 /**
