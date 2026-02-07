@@ -6,7 +6,7 @@
 
 ## Overview
 
-This example demonstrates how to use the `esp_cam_io_parl` component to capture DVP camera sensor signals and send it via HTTP server. This example will auto-detect camera sensors via the `esp_cam_sensor_io_parl` header and capture camera sensor signals via DVP interface. This example also showcase the frame rate that can be achieved with the respective camera sensors.
+This example demonstrates how to use the `esp_cam_io_parl` component to capture DVP camera sensor signals. This example will auto-detect camera sensors via the `esp_cam_sensor_io_parl` header and capture camera sensor signals via DVP interface. This example also showcase the frame rate that can be achieved with the respective camera sensors.
 
 ## Usage
 
@@ -131,4 +131,5 @@ I (4206) main_task: Returned from app_main()
 
 - Link to the ESP-IDF feature's API reference, is attached in the README.md of the component [ESP-IDF: Parallel IO Camera Driver](https://components.espressif.com/components/haqqihaziq/esp_cam_io_parl)
 - [ESP-IDF Getting Started](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html#get-started)
+
 - [Project Configuration](https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/kconfig.html) (Kconfig Options)
