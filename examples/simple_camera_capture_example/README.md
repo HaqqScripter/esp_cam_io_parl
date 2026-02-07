@@ -6,7 +6,7 @@
 
 ## Overview
 
-This example demonstrates how to use the `esp_cam_parl_io` component to capture DVP camera sensor signals and send it via HTTP server. This example will auto-detect camera sensors via the `esp_cam_sensor_io_parl` header and capture camera sensor signals via DVP interface. This example also showcase the frame rate that can be achieved with the respective camera sensors.
+This example demonstrates how to use the `esp_cam_io_parl` component to capture DVP camera sensor signals and send it via HTTP server. This example will auto-detect camera sensors via the `esp_cam_sensor_io_parl` header and capture camera sensor signals via DVP interface. This example also showcase the frame rate that can be achieved with the respective camera sensors.
 
 ## Usage
 
