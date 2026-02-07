@@ -2,7 +2,7 @@
 | ----------------- | -------- | -------- | -------- | -------- |
 
 
-# Camera Web Server example
+# Camera Web Server
 
 ## Overview
 
