@@ -8,6 +8,7 @@
  *
  */
 #include "ov5640.h"
+#include "esp_rom_sys.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
@@ -270,7 +271,7 @@ static int set_pixformat(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
     return ret;
 }
 
-static int set_image_options(esp_cam_sensor_io_parl_handle_t cam_sensor) {
+static int set_image_options(esp_cam_sensor_io_parl_handle_t cam_sensor, bool reset_state) {
     int ret = 0;
     uint8_t reg20 = 0;
     uint8_t reg21 = 0;
@@ -351,6 +352,15 @@ static int set_image_options(esp_cam_sensor_io_parl_handle_t cam_sensor) {
             write_reg(cam_sensor->sccb_address, Y_INCREMENT, 0x31); // odd:3, even: 1
     }
 
+    if (ret == 0 && reset_state) {
+        write_reg(cam_sensor->sccb_address, 0x3003, 0x01); // Reset DVP
+        esp_rom_delay_us(6000); // 6ms delay
+        write_reg(cam_sensor->sccb_address, 0x3003, 0x00);
+        esp_rom_delay_us(3000); // 3ms delay
+        write_reg(cam_sensor->sccb_address, 0x4407, cam_sensor->status.quality & 0x3f);
+        write_reg(cam_sensor->sccb_address, 0x3007, 0xff); // Enable DVP PCLK
+    }
+
     ESP_LOGD(TAG, "Set Image Options: Compression: %u, Binning: %u, V-Flip: %u, H-Mirror: %u, Reg-4514: 0x%02x", cam_sensor->pixformat == ESP_CAM_IO_PARL_PIXFORMAT_JPEG, cam_sensor->status.binning, cam_sensor->status.vflip, cam_sensor->status.hmirror, reg4514);
     return ret;
 }
@@ -374,7 +384,10 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
     cam_sensor->status.scale = !((w == settings.max_width && h == settings.max_height) ||
           (w == (settings.max_width / 2) && h == (settings.max_height / 2))) && !(framesize == ESP_CAM_IO_PARL_FRAMESIZE_QSXGA || framesize == ESP_CAM_IO_PARL_FRAMESIZE_SXGAM);
 
-    ret = write_addr_reg(cam_sensor->sccb_address, X_ADDR_ST_H, settings.start_x, settings.start_y) ||
+    // Disable DVP PCLK
+    ret = write_reg(cam_sensor->sccb_address, 0x4407, 0x3f) ||
+          write_reg(cam_sensor->sccb_address, 0x3007, 0xfb) ||
+          write_addr_reg(cam_sensor->sccb_address, X_ADDR_ST_H, settings.start_x, settings.start_y) ||
           write_addr_reg(cam_sensor->sccb_address, X_ADDR_END_H, settings.end_x, settings.end_y) ||
           write_addr_reg(cam_sensor->sccb_address, X_OUTPUT_SIZE_H, w, h);
 
@@ -407,7 +420,7 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
     }
 
     if (ret == 0) {
-        ret = set_image_options(cam_sensor);
+        ret = set_image_options(cam_sensor, true);
     }
 
     if (ret) {
@@ -423,7 +436,7 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
         int gaincelling_level = cam_sensor->status.gainceiling;
         if (framesize > ESP_CAM_IO_PARL_FRAMESIZE_SXGAM) {
             ret = set_pll(cam_sensor, false, multiplier, 2, 2, false, pclk_root_div, true, 4);
-            gaincelling_level = MIN(cam_sensor->status.gainceiling, 124);
+            gaincelling_level = MIN(gaincelling_level, 124);
         }
         else {
 #if CONFIG_ESP_CAM_IO_PARL_OV5640_HIGH_RES
@@ -431,11 +444,10 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
 #else
             ret = set_pll(cam_sensor, false, 125, 2, 2, false, 2, true, 4);
 #endif
-            gaincelling_level = MAX(cam_sensor->status.gainceiling, 248);
+            gaincelling_level = MAX(gaincelling_level, 248);
         }
         ret = write_reg(cam_sensor->sccb_address, 0x3A18, (gaincelling_level >> 8) & 3) || write_reg(cam_sensor->sccb_address, 0x3A19, gaincelling_level & 0xFF);
         if (ret == 0) {
-            ESP_LOGD(TAG, "Set gainceiling to: %d", gaincelling_level);
             cam_sensor->status.gainceiling = gaincelling_level;
         }
 #endif
@@ -463,7 +475,7 @@ fail:
 static int set_hmirror(esp_cam_sensor_io_parl_handle_t cam_sensor, int enable) {
     int ret = 0;
     cam_sensor->status.hmirror = enable;
-    ret = set_image_options(cam_sensor);
+    ret = set_image_options(cam_sensor, false);
     if (ret == 0) {
         ESP_LOGD(TAG, "Set h-mirror to: %d", enable);
     }
@@ -473,7 +485,7 @@ static int set_hmirror(esp_cam_sensor_io_parl_handle_t cam_sensor, int enable) {
 static int set_vflip(esp_cam_sensor_io_parl_handle_t cam_sensor, int enable) {
     int ret = 0;
     cam_sensor->status.vflip = enable;
-    ret = set_image_options(cam_sensor);
+    ret = set_image_options(cam_sensor, false);
     if (ret == 0) {
         ESP_LOGD(TAG, "Set v-flip to: %d", enable);
     }
@@ -984,7 +996,10 @@ static int set_reg(esp_cam_sensor_io_parl_handle_t cam_sensor, int reg, int mask
 
 static int set_res_raw(esp_cam_sensor_io_parl_handle_t cam_sensor, int startX, int startY, int endX, int endY, int offsetX, int offsetY, int totalX, int totalY, int outputX, int outputY, bool scale, bool binning) {
     int ret = 0;
+    // Disable DVP PCLK
     ret =
+        write_reg(cam_sensor->sccb_address, 0x4407, 0x3f) ||
+        write_reg(cam_sensor->sccb_address, 0x3007, 0xfb) ||
         write_addr_reg(cam_sensor->sccb_address, X_ADDR_ST_H, startX, startY) ||
         write_addr_reg(cam_sensor->sccb_address, X_ADDR_END_H, endX, endY) ||
         write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, offsetX, offsetY) ||
@@ -994,7 +1009,7 @@ static int set_res_raw(esp_cam_sensor_io_parl_handle_t cam_sensor, int startX, i
     if (!ret) {
         cam_sensor->status.scale = scale;
         cam_sensor->status.binning = binning;
-        ret = set_image_options(cam_sensor);
+        ret = set_image_options(cam_sensor, true);
     }
     return ret;
 }
