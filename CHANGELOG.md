@@ -1,10 +1,23 @@
 # Changelog
 
+## v0.1.0-beta.9
+
+### Bug Fixes
+- The examples no longer depend on the old esp_cam_io_parl ESP-IDF component, fixing potential issues.
+- Removed dependency `espressif/esp_jpeg` at the moment.
+
+### Features
+- Added `simple_camera_capture_example` and `camera_web_server_example` component examples.
+- Renamed `simple_camera_stream_example` to `simple_camera_http_stream_example`. Now `esp_wifi_remote` and `esp_hosted` were added as dependencies for targets without Wi-Fi.
+- Changed minimum ESP-IDF version requirement to v5.4.
+- Readded `esp32h4` target to `idf_component.yml`.
+
 ## v0.1.0-beta.8
 
 ### Bug Fixes
 - Removed `FRAMESIZE_2160X1440` camera resolution.
 - Frame buffer no longer freed when calling `esp_cam_io_parl_set_alloc_size` function.
+- Removed `esp32h4` target from `idf_component.yml` at the moment.
 
 ### Features
 - (Breaking changes) Partially reworked the old `esp_camera_sensor` as `esp_cam_sensor_io_parl`.

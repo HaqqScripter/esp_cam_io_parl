@@ -2,7 +2,7 @@ menu "Parallel IO Camera configuration"
 
     config ESP_CAM_IO_PARL_NT99141
         bool "Support NT99141 HD"
-        depends on (SOC_PARLIO_RX_UNIT_MAX_DATA_WIDTH > 8)
+        depends on SOC_PARLIO_RX_UNIT_MAX_DATA_WIDTH > 8
         default y
         help
             Enable this option if you want to use the NT99141.
@@ -10,7 +10,7 @@ menu "Parallel IO Camera configuration"
 
     config ESP_CAM_IO_PARL_OV2640
         bool "Support OV2640 2MP"
-        depends on (SOC_PARLIO_RX_UNIT_MAX_DATA_WIDTH > 8)
+        depends on SOC_PARLIO_RX_UNIT_MAX_DATA_WIDTH > 8
         default y
         help
             Enable this option if you want to use the OV2640.
