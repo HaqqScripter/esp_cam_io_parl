@@ -1,0 +1,66 @@
+menu "Example Configuration"
+
+choice ESP_EXAMPLE_WIFI_MODE
+    bool "Wi-Fi mode for web server"
+    default ESP_EXAMPLE_WIFI_MODE_GPIO
+    help
+        Choose if the ESP32 target operates in Station (STA) mode, Access Point (AP), or GPIO controlled mode.
+
+    config ESP_EXAMPLE_WIFI_MODE_STA
+        bool "Station (STA)"
+    config ESP_EXAMPLE_WIFI_MODE_AP
+        bool "Access Point (AP)"
+    config ESP_EXAMPLE_WIFI_MODE_GPIO
+        bool "GPIO controlled STA/AP"
+endchoice
+
+config ESP_EXAMPLE_WIFI_GPIO
+    int "Wi-Fi switching mode GPIO"
+    depends on ESP_EXAMPLE_WIFI_MODE_GPIO
+    default 0
+    range 0 63
+    help
+        Choose what GPIO pin to act as a switch between Station and Access Point modes on start-up
+
+choice ESP_EXAMPLE_WIFI_AP_BAND
+    bool "Wi-Fi AP band"
+    depends on ESP_EXAMPLE_WIFI_MODE_AP || ESP_EXAMPLE_WIFI_MODE_GPIO
+    default ESP_EXAMPLE_WIFI_AP_BAND_2GHZ
+    help
+        Choose the AP band for the ESP32
+
+    config ESP_EXAMPLE_WIFI_AP_BAND_2GHZ
+        bool "2GHz"
+    config ESP_EXAMPLE_WIFI_AP_BAND_5GHZ
+        bool "5GHz"
+        depends on SOC_WIFI_SUPPORT_5G
+endchoice
+
+config ESP_EXAMPLE_WIFI_SSID
+    string "WiFi SSID"
+    depends on ESP_EXAMPLE_WIFI_MODE_STA || ESP_EXAMPLE_WIFI_MODE_GPIO
+    default "myssid"
+    help
+	    SSID (network name) for the example to connect to.
+
+config ESP_EXAMPLE_WIFI_PASSWORD
+    string "WiFi Password"
+    depends on ESP_EXAMPLE_WIFI_MODE_STA || ESP_EXAMPLE_WIFI_MODE_GPIO
+    default "mypassword"
+    help
+	    WiFi password (WPA or WPA2) for the example to use.
+
+config ESP_EXAMPLE_WIFI_AP_SSID
+    string "WiFi (AP) SSID"
+    depends on ESP_EXAMPLE_WIFI_MODE_AP || ESP_EXAMPLE_WIFI_MODE_GPIO
+    default "myssid"
+    help
+        SSID (network name) for the AP of the example.
+
+config ESP_EXAMPLE_WIFI_AP_PASSWORD
+    string "WiFi (AP) Password"
+    depends on ESP_EXAMPLE_WIFI_MODE_AP || ESP_EXAMPLE_WIFI_MODE_GPIO
+    default "mypassword"
+    help
+        WiFi password (WPA or WPA2) to use for the AP of the example.
+endmenu
