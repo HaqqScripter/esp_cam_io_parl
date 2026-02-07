@@ -1,0 +1,4 @@
+dependencies:
+  haqqscripter/esp_cam_io_parl:
+    version: '*'
+    pre_release: true
