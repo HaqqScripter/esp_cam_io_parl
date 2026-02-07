@@ -6,9 +6,7 @@
 #include "esp_check.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
-#include "esp_idf_version.h"
 #include "esp_log.h"
-#include "esp_rom_sys.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
@@ -34,10 +32,10 @@ static const char *TAG = "esp_cam_io_parl";
 #endif
 
 typedef enum {
-    ESP_CAM_IO_PARL_PENDING_QUEUE, // Frame buffers that are ready to be filled
-    ESP_CAM_IO_PARL_READY_QUEUE,   // Frame buffers that are ready to be used
-    ESP_CAM_IO_PARL_ERROR_QUEUE,   // Frame buffers that were failed to be released
-    ESP_CAM_IO_PARL_MAX_QUEUE,
+    ESP_CAM_IO_PARL_QUEUE_PENDING, // Frame buffers that are ready to be filled
+    ESP_CAM_IO_PARL_QUEUE_READY,   // Frame buffers that are ready to be used
+    ESP_CAM_IO_PARL_QUEUE_FAIL,   // Frame buffers that were failed to be released
+    ESP_CAM_IO_PARL_QUEUE_MAX,
 } esp_cam_io_parl_queue_type_t;
 
 typedef enum {
@@ -65,7 +63,7 @@ static bool IRAM_ATTR esp_cam_io_parl_received_partial_data(parlio_rx_unit_handl
                 bool is_normal = (offset + 1 < chunk_len && chunk[offset + 1] == 0xD8);
                 if (is_split || is_normal) {
                     esp_cam_io_parl->info.index = 0;
-                    if (xQueueReceiveFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_PENDING_QUEUE], &esp_cam_io_parl->info.frame, &_hp_task_woken)) {
+                    if (xQueueReceiveFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_PENDING], &esp_cam_io_parl->info.frame, &_hp_task_woken)) {
                         esp_cam_io_parl->info.frame.buffer[esp_cam_io_parl->info.index++] = 0xFF;
                         esp_cam_io_parl->info.frame.buffer[esp_cam_io_parl->info.index++] = 0xD8;
                         esp_cam_io_parl->info.state = ESP_CAM_IO_PARL_JPEG_HEADER;
@@ -95,6 +93,10 @@ static bool IRAM_ATTR esp_cam_io_parl_received_partial_data(parlio_rx_unit_handl
                     if (m_type == 0xDA && esp_cam_io_parl->info.state == ESP_CAM_IO_PARL_JPEG_HEADER) {
                         esp_cam_io_parl->info.state = ESP_CAM_IO_PARL_JPEG_ENTROPY;
                     }
+                    else if (m_type == 0xD8 && esp_cam_io_parl->info.state == ESP_CAM_IO_PARL_JPEG_ENTROPY) {
+                        // Deformed JPEG image, handle it
+                        goto err;
+                    }
                     else if (m_type == 0xD9 && esp_cam_io_parl->info.state == ESP_CAM_IO_PARL_JPEG_ENTROPY) {
                         esp_cam_io_parl->info.frame.buffer[esp_cam_io_parl->info.index++] = 0xFF;
                         esp_cam_io_parl->info.frame.buffer[esp_cam_io_parl->info.index++] = 0xD9;
@@ -102,12 +104,17 @@ static bool IRAM_ATTR esp_cam_io_parl_received_partial_data(parlio_rx_unit_handl
                         frame.length = esp_cam_io_parl->info.index;
                         // Release frame buffer to queue
                         BaseType_t hpw = pdFALSE;
-                        if (!xQueueSendFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_READY_QUEUE], &frame, &hpw)) {
-                            esp_cam_io_parl_trans_t old;
-                            if (xQueueReceiveFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_READY_QUEUE], &old, &hpw)) {
-                                xQueueSendFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_ERROR_QUEUE], &old, &hpw);
+                        if (!xQueueSendFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_READY], &frame, &hpw)) {
+                            if (esp_cam_io_parl->config.fill_mode == ESP_CAM_IO_PARL_QUEUE_LATEST) {
+                                esp_cam_io_parl_trans_t old;
+                                if (xQueueReceiveFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_READY], &old, &hpw)) {
+                                    xQueueSendFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_FAIL], &old, &hpw);
+                                }
+                                xQueueSendFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_READY], &frame, &hpw);
                             }
-                            xQueueSendFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_READY_QUEUE], &frame, &hpw);
+                            else {
+                                xQueueSendFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_FAIL], &frame, &hpw);
+                            }
                         }
                         esp_cam_io_parl->info.state = ESP_CAM_IO_PARL_JPEG_IDLE;
                         esp_cam_io_parl->info.frame.buffer = NULL;
@@ -135,8 +142,10 @@ static bool IRAM_ATTR esp_cam_io_parl_received_partial_data(parlio_rx_unit_handl
 
 jpeg_overflow:
     ESP_EARLY_LOGW(TAG, "JPEG buffer overflow");
+    goto err;
+err:
     esp_cam_io_parl->info.state = ESP_CAM_IO_PARL_JPEG_IDLE;
-    if (!xQueueSendFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_ERROR_QUEUE], &esp_cam_io_parl->info.frame, &_hp_task_woken)) {
+    if (!xQueueSendFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_FAIL], &esp_cam_io_parl->info.frame, &_hp_task_woken)) {
         // Do nothing at the moment
     }
     if (_hp_task_woken) {
@@ -149,13 +158,13 @@ static void esp_cam_io_parl_task(void *user_data) {
     esp_cam_io_parl_handle_t esp_cam_io_parl = (esp_cam_io_parl_handle_t)user_data;
     while (true) {
         esp_cam_io_parl_trans_t frame;
-        if (xQueueReceive(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_ERROR_QUEUE], &frame, 0)) {
+        if (xQueueReceive(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_FAIL], &frame, 0)) {
             heap_caps_free(frame.buffer);
 	    }
         frame.length = esp_cam_io_parl->alloc_size;
         frame.buffer = heap_caps_malloc(frame.length, esp_cam_io_parl->alloc_heap_caps);
         if (frame.buffer) {
-            if (!xQueueSend(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_PENDING_QUEUE], &frame, 0)) {
+            if (!xQueueSend(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_PENDING], &frame, 0)) {
                 heap_caps_free(frame.buffer);
             }
         }
@@ -164,7 +173,7 @@ static void esp_cam_io_parl_task(void *user_data) {
 }
 
 static esp_err_t esp_cam_destroy_io_parl(esp_cam_io_parl_handle_t esp_cam_io_parl) {
-    for (int i = 0; i < ESP_CAM_IO_PARL_MAX_QUEUE; i++) {
+    for (int i = 0; i < ESP_CAM_IO_PARL_QUEUE_MAX; i++) {
         if (esp_cam_io_parl->queue_handle[i]) {
             vQueueDeleteWithCaps(esp_cam_io_parl->queue_handle[i]);
         }
@@ -195,7 +204,7 @@ esp_err_t esp_cam_new_io_parl(const esp_cam_io_parl_config_t *config, esp_cam_io
     gpio_num_t valid_gpio = config->de_io >= 0 ? config->de_io : (config->hsync_io >= 0 ? config->hsync_io : -1);
     uint32_t pclk_freq = config->pclk_hz > 0 ? config->pclk_hz : (40 * 1000 * 1000);
     parlio_rx_unit_config_t rx_unit_config = {
-        .trans_queue_depth = 16,
+        .trans_queue_depth = 8,
         .max_recv_size = MIN(esp_cam_io_parl->payload_size, UINT16_MAX),
         .data_width = config->data_width,
         .clk_src = PARLIO_CLK_SRC_EXTERNAL,
@@ -205,10 +214,8 @@ esp_err_t esp_cam_new_io_parl(const esp_cam_io_parl_config_t *config, esp_cam_io
         .clk_out_gpio_num = -1,
         .valid_gpio_num = valid_gpio,
         .flags = {
-            .free_clk = true,
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
+            .free_clk = false,
             .allow_pd = config->flags.allow_pd,
-#endif
         },
     };
     memcpy(rx_unit_config.data_gpio_nums, config->data_io, PARLIO_RX_UNIT_MAX_DATA_WIDTH * sizeof(gpio_num_t));
@@ -269,13 +276,13 @@ esp_err_t esp_cam_new_io_parl(const esp_cam_io_parl_config_t *config, esp_cam_io
     };
     ESP_GOTO_ON_ERROR(parlio_rx_unit_register_event_callbacks(esp_cam_io_parl->rx_unit, &cbs, esp_cam_io_parl), err, TAG, "Failed to initialize partial receive callback");
 
-    for (int i = 0; i < ESP_CAM_IO_PARL_MAX_QUEUE; i++) {
-        int queue_length = (i == ESP_CAM_IO_PARL_ERROR_QUEUE ? MAX(config->queue_frames, 2) : config->queue_frames); // Force minimum queue length to 2 for error queue to prevent heap leaks
+    for (int i = 0; i < ESP_CAM_IO_PARL_QUEUE_MAX; i++) {
+        int queue_length = (i == ESP_CAM_IO_PARL_QUEUE_FAIL ? MAX(config->queue_frames, 2) : config->queue_frames); // Force minimum queue length to 2 for error queue to prevent heap leaks
         esp_cam_io_parl->queue_handle[i] = xQueueCreateWithCaps(queue_length, sizeof(esp_cam_io_parl_trans_t), MALLOC_CAP_DEFAULT);
         ESP_GOTO_ON_FALSE(esp_cam_io_parl->queue_handle[i], ESP_ERR_NO_MEM, err, TAG, "No memory for queue");
     }
 
-    esp_cam_io_parl->payload = heap_caps_malloc(esp_cam_io_parl->payload_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+    esp_cam_io_parl->payload = heap_caps_calloc(1, esp_cam_io_parl->payload_size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
     ESP_GOTO_ON_FALSE(esp_cam_io_parl->payload, ESP_ERR_NO_MEM, err, TAG, "No memory for payload buffer");
 
     esp_cam_io_parl->alloc_heap_caps = config->frame_heap_caps ? config->frame_heap_caps : MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
@@ -312,7 +319,7 @@ esp_err_t esp_cam_io_parl_enable(esp_cam_io_parl_handle_t esp_cam_io_parl, bool 
             .delimiter = esp_cam_io_parl->rx_delimiter,
             .flags = {
                 .partial_rx_en = true,
-                .indirect_mount = true,
+                .indirect_mount = false,
             },
         };
         ESP_RETURN_ON_ERROR(parlio_rx_unit_receive(esp_cam_io_parl->rx_unit, esp_cam_io_parl->payload, esp_cam_io_parl->payload_size, &receive_config), TAG, "Failed to receive from PARLIO RX");
@@ -336,7 +343,7 @@ esp_err_t esp_cam_io_parl_receive(esp_cam_io_parl_handle_t esp_cam_io_parl, esp_
     ESP_RETURN_ON_FALSE(esp_cam_io_parl && frame, ESP_ERR_INVALID_ARG, TAG, "Invalid arguments");
     //ESP_RETURN_ON_FALSE(esp_cam_io_parl->config.sampling_mode == ESP_CAM_IO_PARL_BUFFER, ESP_ERR_INVALID_STATE, TAG, "Sampling mode is invalid");
     TickType_t ticks = timeout_ms < 0 ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
-    BaseType_t ret = xQueueReceive(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_READY_QUEUE], frame, ticks);
+    BaseType_t ret = xQueueReceive(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_READY], frame, ticks);
     if (ret == pdFALSE) {
         frame->buffer = NULL;
         frame->length = 0;
@@ -349,7 +356,7 @@ esp_err_t esp_cam_io_parl_receive_from_isr(esp_cam_io_parl_handle_t esp_cam_io_p
     ESP_CAM_IO_PARL_CHECK_ISR(xPortInIsrContext() == pdTRUE, ESP_ERR_INVALID_STATE);
     //ESP_CAM_IO_PARL_CHECK_ISR(esp_cam_io_parl->config.sampling_mode == ESP_CAM_IO_PARL_BUFFER, ESP_ERR_INVALID_STATE);
     BaseType_t _hp_task_woken = 0;
-    BaseType_t ret = xQueueReceiveFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_READY_QUEUE], frame, &_hp_task_woken);
+    BaseType_t ret = xQueueReceiveFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_READY], frame, &_hp_task_woken);
     if (hp_task_woken) {
         *hp_task_woken = _hp_task_woken != 0;
     }

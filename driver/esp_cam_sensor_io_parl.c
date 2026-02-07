@@ -328,19 +328,18 @@ fail:
 }
 
 esp_err_t esp_cam_del_sensor_io_parl(void) {
-    esp_err_t ret = ESP_OK;
+    ESP_RETURN_ON_FALSE(esp_cam_sensor_io_parl_interface != NULL, ESP_ERR_NOT_FOUND, TAG, "Camera not detected");
     camera_disable_out_clock();
-    if (esp_cam_sensor_io_parl_interface) {
-        sccb_deinit();
+    sccb_deinit();
 
-        heap_caps_free(esp_cam_sensor_io_parl_interface);
-        esp_cam_sensor_io_parl_interface = NULL;
-    }
+    heap_caps_free(esp_cam_sensor_io_parl_interface);
+    esp_cam_sensor_io_parl_interface = NULL;
+
     if (esp_cam_sensor_io_parl_controlled_interface) {
         heap_caps_free(esp_cam_sensor_io_parl_controlled_interface);
     }
 
-    return ret;
+    return ESP_OK;
 }
 
 esp_err_t esp_cam_sensor_io_parl_get_interface(esp_cam_sensor_io_parl_handle_t *esp_cam_sensor_io_parl) {
