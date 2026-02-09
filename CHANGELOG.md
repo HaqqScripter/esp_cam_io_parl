@@ -7,7 +7,7 @@
 - Removed dependency `espressif/esp_jpeg` at the moment.
 
 ### Features
-- Added frame grab method `esp_cam_io_parl_queue_fill_mode_t` as `fill_mode` in esp_cam_io_parl configuration. `ESP_CAM_IO_PARL_QUEUE_LATEST` ensures that the latest frame should always be captured and inserted in the queue. `ESP_CAM_IO_PARL_QUEUE_PRESERVE` will preserve old frames in the queue until it has been grabbed by the user.
+- Added frame grab method `esp_cam_io_parl_queue_fill_mode_t` as `fill_mode` in `esp_cam_io_parl` configuration. `ESP_CAM_IO_PARL_QUEUE_LATEST` ensures that the latest frame should always be captured and inserted in the queue. `ESP_CAM_IO_PARL_QUEUE_PRESERVE` will preserve old frames in the queue until it has been grabbed by the user.
 - Added `simple_camera_capture_example` and `camera_web_server_example` component examples.
 - Renamed `simple_camera_stream_example` to `simple_camera_http_stream_example`. Now `esp_wifi_remote` and `esp_hosted` were added as dependencies for targets without Wi-Fi.
 - Changed minimum ESP-IDF version requirement to v5.4.
@@ -106,3 +106,4 @@
 
 
 - First pre-release version. VSYNC pin is not implemented and only JPEG images are supported.
+
