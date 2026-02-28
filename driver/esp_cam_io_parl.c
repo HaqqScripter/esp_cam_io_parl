@@ -202,10 +202,10 @@ esp_err_t esp_cam_new_io_parl(const esp_cam_io_parl_config_t *config, esp_cam_io
     ESP_GOTO_ON_FALSE(esp_cam_io_parl, ESP_ERR_NO_MEM, err, TAG, "No memory for allocating rx unit");
     esp_cam_io_parl->payload_size = CONFIG_ESP_CAM_IO_PARL_PAYLOAD_SIZE;
     gpio_num_t valid_gpio = config->de_io >= 0 ? config->de_io : (config->hsync_io >= 0 ? config->hsync_io : -1);
-    uint32_t pclk_freq = config->pclk_hz > 0 ? config->pclk_hz : (40 * 1000 * 1000);
+    uint32_t pclk_freq = config->pclk_hz > 0 ? config->pclk_hz : (80 * 1000 * 1000);
     parlio_rx_unit_config_t rx_unit_config = {
-        .trans_queue_depth = 8,
-        .max_recv_size = MIN(esp_cam_io_parl->payload_size, UINT16_MAX),
+        .trans_queue_depth = 4,
+        .max_recv_size = UINT16_MAX,
         .data_width = config->data_width,
         .clk_src = PARLIO_CLK_SRC_EXTERNAL,
         .ext_clk_freq_hz = pclk_freq,

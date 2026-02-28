@@ -51,6 +51,7 @@ const esp_cam_sensor_io_parl_resolution_info_t esp_cam_sensor_io_parl_resolution
     {  480,  320, ESP_CAM_IO_PARL_ASPECT_RATIO_3X2   }, /* HVGA  */
     {  640,  360, ESP_CAM_IO_PARL_ASPECT_RATIO_16X9  }, /* 640x360 */
     {  640,  480, ESP_CAM_IO_PARL_ASPECT_RATIO_4X3   }, /* VGA   */
+    {  848,  480, ESP_CAM_IO_PARL_ASPECT_RATIO_16X9  }, /* FWVGA */
     {  800,  600, ESP_CAM_IO_PARL_ASPECT_RATIO_4X3   }, /* SVGA  */
     { 1024,  768, ESP_CAM_IO_PARL_ASPECT_RATIO_4X3   }, /* XGA   */
     { 1280,  720, ESP_CAM_IO_PARL_ASPECT_RATIO_16X9  }, /* HD    */
