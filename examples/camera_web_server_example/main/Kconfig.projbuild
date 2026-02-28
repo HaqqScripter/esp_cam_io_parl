@@ -2,7 +2,7 @@ menu "Example Configuration"
 
 choice ESP_EXAMPLE_WIFI_MODE
     bool "Wi-Fi mode for web server"
-    default ESP_EXAMPLE_WIFI_MODE_GPIO
+    default ESP_EXAMPLE_WIFI_MODE_AP
     help
         Choose if the ESP32 target operates in Station (STA) mode, Access Point (AP), or GPIO controlled mode.
 
