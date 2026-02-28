@@ -6,12 +6,11 @@
 
 ## Overview
 
-This example demonstrates how to use the `esp_cam_io_parl` component to capture DVP camera sensor signals and send it via HTTP server. This example will auto-detect camera sensors via the `esp_cam_sensor_io_parl` header and capture camera sensor signals via DVP interface.
+This example includes a fully featured camera web server for OV2640, OV3660, and OV5640 camera sensors with `esp_cam_io_parl` component. This example will auto-detect camera sensors via the `esp_cam_sensor_io_parl` header and capture camera sensor signals via DVP interface.
 
 ## Usage
 
 The subsections below give only absolutely necessary information. For full steps to configure ESP-IDF and use it to build and run projects, see [ESP-IDF Getting Started](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html#get-started).
-
 
 ### Hardware Required
 
