@@ -197,7 +197,7 @@ static int set_pll(esp_cam_sensor_io_parl_handle_t cam_sensor, bool bypass, uint
     }
     if (ret == 0) {
         ret =
-            write_reg(cam_sensor->sccb_address, 0x460C, pclk_manual ? 0x22 : 0x20);
+            write_reg(cam_sensor->sccb_address, 0x460C, pclk_manual ? 0x26 : 0x24);
     }
     if (ret == 0) {
         ret = write_reg(cam_sensor->sccb_address, 0x3103,
@@ -397,13 +397,6 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
 
     bool is_portrait_hd = (ratio == ESP_CAM_IO_PARL_ASPECT_RATIO_9X16 && framesize >= ESP_CAM_IO_PARL_FRAMESIZE_P_HD);
 
-    if (framesize == ESP_CAM_IO_PARL_FRAMESIZE_UXGA) {
-        settings.offset_y = 4;
-    }
-    if (framesize == ESP_CAM_IO_PARL_FRAMESIZE_640X360 || is_portrait_hd) {
-        settings.offset_y = 8;
-    }
-
     if (!cam_sensor->status.binning) {
         ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, settings.total_x, settings.total_y) ||
               write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, settings.offset_x, settings.offset_y);
@@ -413,6 +406,7 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
         } else {
             ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, 2060, settings.total_y / 2);
         }
+        ret |= write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, settings.offset_x / 2, settings.offset_y / 2);
     }
 
     if (ret == 0) {
@@ -1122,13 +1116,6 @@ static int init_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     cam_sensor->set_sharpness(cam_sensor, -3);
     cam_sensor->set_denoise(cam_sensor, 8);
 
-#if CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_ANY_RES
-    ESP_LOGW(TAG, "High Performance Mode is enabled. Please ensure that the bandwidth is sufficient for transmitting the image data");
-#endif
-#if CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_HIGH_RES
-    ESP_LOGW(TAG, "High performance on resolutions greater than 1280x960 is applied, please ensure that the bandwidth is sufficient for transmitting the image data");
-#endif
-
 #if CONFIG_ESP_CAM_IO_PARL_OV5640_AF
     ESP_LOGI(TAG, "Initializing autofocus mode");
     if (autofocus_init(cam_sensor) == 0) {
@@ -1199,6 +1186,12 @@ int ov5640_init(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     cam_sensor->set_res_raw = set_res_raw;
     cam_sensor->set_pll = _set_pll;
     cam_sensor->set_xclk = set_xclk;
+
+#if CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_ANY_RES
+    ESP_LOGW(TAG, "High Performance Mode is enabled. Please ensure that the bandwidth is sufficient for transmitting the image data");
+#elif CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_HIGH_RES
+    ESP_LOGW(TAG, "High performance on resolutions greater than 1280x960 is applied, please ensure that the bandwidth is sufficient for transmitting the image data");
+#endif
 
     return 0;
 }

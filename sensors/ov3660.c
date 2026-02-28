@@ -8,6 +8,7 @@
  *
  */
 #include "ov3660.h"
+#include "esp_cam_sensor_io_parl.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "ov3660_regs.h"
@@ -165,7 +166,7 @@ static int set_pll(esp_cam_sensor_io_parl_handle_t cam_sensor, bool bypass, uint
         ret = write_reg(cam_sensor->sccb_address, PCLK_RATIO, pclk_div & 0x1f);
     }
     if (ret == 0) {
-        ret = write_reg(cam_sensor->sccb_address, VFIFO_CTRL0C, pclk_manual ? 0x22 : 0x20);
+        ret = write_reg(cam_sensor->sccb_address, VFIFO_CTRL0C, pclk_manual ? 0x26 : 0x24);
     }
     if (ret) {
         ESP_LOGE(TAG, "set_sensor_pll FAILED!");
@@ -348,7 +349,7 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
               write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, 8, 2);
     } else {
         ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, settings.total_x, settings.total_y) ||
-              write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, 16, 6);
+              write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, 16, 4);
     }
 
     if (ret == 0) {
@@ -365,11 +366,30 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
 
     if (cam_sensor->pixformat == ESP_CAM_IO_PARL_PIXFORMAT_JPEG) {
         if (framesize == ESP_CAM_IO_PARL_FRAMESIZE_QXGA) {
+#if CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_DIS
             // 40MHz SYSCLK and 10MHz PCLK
             ret = set_pll(cam_sensor, false, 24, 1, 3, false, 0, true, 8);
+#else
+            // 70MHz SYSCLK and 17.5MHz PCLK
+            ret = set_pll(cam_sensor, false, 21, 1, 1, false, 0, true, 8);
+#endif
         } else {
+#if CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_ANY_RES
+            // 70MHz SYSCLK and 17.5MHz PCLK
+            ret = set_pll(cam_sensor, false, 21, 1, 1, false, 0, true, 8);
+#elif CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_HIGH_RES
+            if (framesize > ESP_CAM_IO_PARL_FRAMESIZE_XGA) {
+                // 70MHz SYSCLK and 17.5MHz PCLK
+                ret = set_pll(cam_sensor, false, 21, 1, 1, false, 0, true, 8);
+            }
+            else {
+                // 50MHz SYSCLK and 10MHz PCLK
+                ret = set_pll(cam_sensor, false, 30, 1, 3, false, 0, true, 10);
+            }
+#else
             // 50MHz SYSCLK and 10MHz PCLK
             ret = set_pll(cam_sensor, false, 30, 1, 3, false, 0, true, 10);
+#endif
         }
     } else {
         // tuned for 16MHz XCLK and 8MHz PCLK
@@ -1029,5 +1049,12 @@ int ov3660_init(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     cam_sensor->set_res_raw = set_res_raw;
     cam_sensor->set_pll = _set_pll;
     cam_sensor->set_xclk = set_xclk;
+
+#if CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_ANY_RES
+    ESP_LOGW(TAG, "High Performance Mode is enabled. Please ensure that the bandwidth is sufficient for transmitting the image data");
+#elif CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_HIGH_RES
+    ESP_LOGW(TAG, "High performance on resolutions greater than 1024x768 is applied, please ensure that the bandwidth is sufficient for transmitting the image data");
+#endif
+
     return 0;
 }
