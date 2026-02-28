@@ -16,12 +16,32 @@ menu "Parallel IO Camera configuration"
             Enable this option if you want to use the OV2640.
             Disable this option to save memory.
 
-    config ESP_CAM_IO_PARL_OV3660
+    menuconfig ESP_CAM_IO_PARL_OV3660
         bool "Support OV3660 3MP"
         default y
         help
             Enable this option if you want to use the OV3660.
             Disable this option to save memory.
+
+    if ESP_CAM_IO_PARL_OV3660
+        choice ESP_CAM_IO_PARL_OV3660_HPM
+            bool "High Performance Mode (24MHz XCLK recommended)"
+            default ESP_CAM_IO_PARL_OV3660_HPM_DIS
+            help
+                Whether the High Performance Mode of OV3660 is enabled.
+                Enabling this option allows high frame rate captures by modifying the PLL registers.
+                For example, this option allows 30fps at 1920x1080 and 20fps at maximum resolution (JPEG format).
+                User can set this mode at any resolution, or resolutions above 1024x768.
+                If disabled, default OV3660 settings will be used instead.
+
+            config ESP_CAM_IO_PARL_OV3660_HPM_ANY_RES
+                bool "Any resolution"
+            config ESP_CAM_IO_PARL_OV3660_HPM_HIGH_RES
+                bool "Resolutions above 1024x768"
+            config ESP_CAM_IO_PARL_OV3660_HPM_DIS
+                bool "Disabled"
+        endchoice
+    endif
 
     menuconfig ESP_CAM_IO_PARL_OV5640
         bool "Support OV5640 5MP"
@@ -43,7 +63,7 @@ menu "Parallel IO Camera configuration"
             help
                 Whether the High Performance Mode of OV5640 is enabled.
                 Enabling this option allows high frame rate captures by modifying the PLL registers.
-                For example, this option allows 20fps at 2560x1440 and 15fps at maximum resolution.
+                For example, this option allows 20fps at 2560x1440 and 15fps at maximum resolution (JPEG format).
                 User can set this mode at any resolution, or resolutions above 1280x960.
                 If disabled, default OV5640 settings will be used instead.
 
@@ -54,7 +74,6 @@ menu "Parallel IO Camera configuration"
             config ESP_CAM_IO_PARL_OV5640_HPM_DIS
                 bool "Disabled"
         endchoice
-
     endif
 
     menuconfig ESP_CAM_IO_PARL_FRAME_SIZE_AUTO

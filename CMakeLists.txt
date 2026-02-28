@@ -23,7 +23,7 @@ if(idf_version VERSION_GREATER_EQUAL "5.3" AND (IDF_TARGET STREQUAL "esp32c6" OR
         sensors/nt99141.c
     )
 
-    set(priv_requires esp_driver_ledc esp_driver_i2c esp_timer freertos nvs_flash)
+    set(priv_requires esp_driver_i2c esp_timer freertos nvs_flash)
 
     if (idf_version VERSION_GREATER_EQUAL "6.0")
         list(APPEND priv_requires esp_driver_gpio)
@@ -34,6 +34,6 @@ idf_component_register(
     SRCS ${srcs}
     INCLUDE_DIRS ${include_dirs}
     PRIV_INCLUDE_DIRS ${priv_include_dirs}
-    REQUIRES esp_driver_parlio
+    REQUIRES esp_driver_ledc esp_driver_parlio
     PRIV_REQUIRES ${priv_requires}
 )

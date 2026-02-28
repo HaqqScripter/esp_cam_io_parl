@@ -217,6 +217,7 @@ void app_main(void) {
     static esp_cam_io_parl_config_t esp_cam_io_parl_config = {
         .data_width = 8,
         .queue_frames = 2,
+        .fill_mode = ESP_CAM_IO_PARL_QUEUE_LATEST,
         .frame_heap_caps = FRAME_BUFFER_CAPS,
         .pclk_io = CAM_PCLK_PIN,
         .de_io = CAM_HREF_PIN,
@@ -559,6 +560,7 @@ void app_main(void) {
     static esp_cam_io_parl_config_t esp_cam_io_parl_config = {
         .data_width = 8,
         .queue_frames = 2,
+        .fill_mode = ESP_CAM_IO_PARL_QUEUE_LATEST,
         .frame_heap_caps = FRAME_BUFFER_CAPS,
         .pclk_io = CAM_PCLK_PIN,
         .de_io = CAM_HREF_PIN,
@@ -608,17 +610,21 @@ These are the list of default configurations for this component:
 CONFIG_ESP_CAM_IO_PARL_NT99141 y // Probes NT99141. Targets without valid signals will have this configuration disabled since this sensor does not support it
 CONFIG_ESP_CAM_IO_PARL_OV2640 y // Probes OV2640. Targets without valid signals will have this configuration disabled since this sensor does not support it
 CONFIG_ESP_CAM_IO_PARL_OV3660 y // Probes OV3660
+CONFIG_ESP_CAM_IO_PARL_OV3660_HPM n // Enables high performance on OV3660 for increased frame rate, this will allow 20FPS at full resolution, while 30FPS at 1920x1080 (QHD) resolution. Works best with 24MHz XCLK
+CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_ANY_RES n // Fully enables High Performance Mode on all resolutions, allowing 50FPS for 1024x768.
+CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_HIGH_RES n // Only enables high performance on OV3660 for resolutions above 1024x768.
+CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_DIS y // Disable High Performance Mode on OV3660 by default
 CONFIG_ESP_CAM_IO_PARL_OV5640 y // Probes OV5640
 CONFIG_ESP_CAM_IO_PARL_OV5640_AF n // Allows OV5640 with Autofocus function
-CONFIG_ESP_CAM_IO_PARL_OV5640_HPM n // [Experimental] Enables high performance on OV5640 for increased frame rate, this will allow 15FPS at full resolution, while 20FPS at 2560x1440 (QHD) resolution. Works best with 24MHz XCLK
-ESP_CAM_IO_PARL_OV5640_HPM_ANY_RES n // Fully enables High Performance Mode on all resolutions, allowing 30FPS 1280x960 captures and 40FPS for 1280x720.
-ESP_CAM_IO_PARL_OV5640_HPM_HIGH_RES n // Only enables high performance on OV5640 for resolutions above 1280x960.
-ESP_CAM_IO_PARL_OV5640_HPM_DIS y // Disable High Performance Mode on OV5640 by default
+CONFIG_ESP_CAM_IO_PARL_OV5640_HPM n // Enables high performance on OV5640 for increased frame rate, this will allow 15FPS at full resolution, while 20FPS at 2560x1440 (QHD) resolution. Works best with 24MHz XCLK
+CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_ANY_RES n // Fully enables High Performance Mode on all resolutions, allowing 30FPS 1280x960 captures and 40FPS for 1280x720.
+CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_HIGH_RES n // Only enables high performance on OV5640 for resolutions above 1280x960.
+CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_DIS y // Disable High Performance Mode on OV5640 by default
 
-ESP_CAM_IO_PARL_FRAME_SIZE_AUTO y // Automatically set frame buffer size on resolution change, for JPEG images, user can adjust the frame buffer size dynamically with the formula (width * height * multiplier / divider + padding)
-ESP_CAM_IO_PARL_FRAME_SIZE_MUL 2 // Represents the multiplier
-ESP_CAM_IO_PARL_FRAME_SIZE_DIV 9 // Represents the divider
-ESP_CAM_IO_PARL_FRAME_SIZE_PADDING 4096 // Represents the padding
+CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_AUTO y // Automatically set frame buffer size on resolution change, for JPEG images, user can adjust the frame buffer size dynamically with the formula (width * height * multiplier / divider + padding)
+CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_MUL 2 // Represents the multiplier
+CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_DIV 9 // Represents the divider
+CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_PADDING 4096 // Represents the padding
 
 CONFIG_CAMERA_PAYLOAD_BUFFER_SIZE 0x8000 // Payload size: 32768
 CONFIG_ESP_CAM_IO_PARL_SCCB_I2C_PORT0 y // Use the I2C0 port by default
@@ -628,26 +634,47 @@ CONFIG_ESP_CAM_IO_PARL_SCCB_CLK_FREQ 100000 // Higher values allows for faster i
 ```
 
 # Measured Frame Rates
-At the moment, only the OV5640 camera sensor was measured. To accquire higher frame rates on OV5640, please refer to `Experimental Features (High Peformance Mode)` section.
-### OV5640
+At the moment, only the OV5640 and OV3660 camera sensor was measured. To accquire higher frame rates, please refer to `Experimental Features (High Peformance Mode)` section.
+### OV5640 (5MP)
 | Resolution                                         | Aspect ratio  | Max frame rate  |
 | -------------------------------------------------- | ------------- | --------------- |
 | 2592x1944<br>2560x1920<br>2048x1536<br>1600x1200   | 4:3           | ~10FPS          |
-| 1088x1920<br>720x1280<br>864x1536                  | 9:16          | ~15FPS          |
+| 1080x1920<br>864x1536<br>720x1280                  | 9:16          | ~15FPS          |
 | 2560x1600<br>1920x1200                             | 16:10         | ~12FPS          |
 | 2560x1440<br>1920x1080                             | 16:9          | ~13FPS          |
-| 2160x1440                                          | 3:2           | ~11FPS          |
 | 1280x1024                                          | 5:4           | ~10FPS          |
 | 1280x960                                           | 4:3           | ~22FPS          |
 | 1280x720                                           | 16:9          | ~30FPS          |
 | 1024x768 (and below with the same aspect ratio)    | 4:3           | ~29FPS          |
-| 640x360                                            | 16:9          | ~38FPS          |
+| 854x480<br>640x360                                 | 16:9          | ~38FPS          |
 | 480x320                                            | 3:2           | ~32FPS          |
 | 320x320  (and below with the same aspect ratio)    | 1:1           | ~29FPS          |
 | 176x144                                            | 5:4           | ~28FPS          |
 
+### OV3660 (3MP)
+| Resolution                                         | Aspect ratio  | Max frame rate  |
+| -------------------------------------------------- | ------------- | --------------- |
+| 2048x1536                                          | 4:3           | ~13FPS          |
+| 864x1536<br>720x1280                               | 9:16          | ~19FPS          |
+| 1920x1200                                          | 16:10         | ~18FPS          |
+| 1920x1080<br>1280x720                              | 16:9          | ~21FPS          |
+| 1600x1200<br>1280x960                              | 4:3           | ~17FPS          |
+| 1280x1024                                          | 5:4           | ~18FPS          |
+| 1024x768 (and below with the same aspect ratio)    | 4:3           | ~35FPS          |
+| 854x480<br>640x360                                 | 16:9          | ~45FPS          |
+| 480x320                                            | 3:2           | ~41FPS          |
+| 320x320  (and below with the same aspect ratio)    | 1:1           | ~40FPS          |
+| 176x144                                            | 5:4           | ~37FPS          |
+
 # Experimental Features (High Peformance Mode)
-- Currently, OV5640 has settings that allow 15FPS capture at full resolution (2592x1944), and 20FPS at QHD (2560x1440) by enabling `CONFIG_ESP_CAM_IO_PARL_OV5640_HPM`. User can set whether the high frame rate is only needed for resolutions above 1280x960 by selecting `ESP_CAM_IO_PARL_OV5640_HPM_HIGH_RES`, or unlock faster frame rates at all resolutions by selecting `ESP_CAM_IO_PARL_OV5640_HPM_ANY_RES` to achieve up to 30FPS 1280x960 and 40FPS 1280x720. This feature works best with a stable 24MHz XCLK.
+This component offers users the ability to capture higher frame rates on certain camera sensors. Currently, OV5640 and OV3660 have been tested to achieve higher frame rates than usual.
+## Camera sensors
+### OV5640
+- Captures 15FPS at full resolution (2592x1944) and 20FPS at QHD (2560x1440) by enabling `CONFIG_ESP_CAM_IO_PARL_OV5640_HPM`. User can set whether the high frame rate is only needed for resolutions above 1280x960 (2x2 binning) by selecting `ESP_CAM_IO_PARL_OV5640_HPM_HIGH_RES`, or unlock faster frame rates at all resolutions by selecting `ESP_CAM_IO_PARL_OV5640_HPM_ANY_RES` to achieve up to 30FPS 1280x960 and 40FPS 1280x720.
+### OV3660
+- 20FPS capture at full resolution (2048x1536) and 30FPS at FHD (1920x1080) is possible with this configuration`CONFIG_ESP_CAM_IO_PARL_OV3660_HPM` enabled. User can set whether the high frame rate is only needed for resolutions above 1024x768 (2x2 binning) by selecting `ESP_CAM_IO_PARL_OV3660_HPM_HIGH_RES`, or unlock faster frame rates at all resolutions by selecting `ESP_CAM_IO_PARL_OV3660_HPM_ANY_RES` to achieve up to 50FPS at 1024x768.
+## Notes
+- This feature works best with a stable 24MHz XCLK. Higher frame rates only apply for JPEG image format.
 - Please ensure that the bandwidth is sufficient to transmit the image (over Wi-Fi, SD Card, or another target), it is preferred that UDP transport over Wi-Fi is used. This is true for high quality JPEG images at larger resolutions as they consume large amount of file size. Additionally, higher frame rates can consume more current, and produces excessive heat. Consider applying a heat sink for the camera sensor.
 
 # API Reference
@@ -699,9 +726,11 @@ Initialize the camera sensor interface and configure the sensor via SCCB/I2C.
 
 **Returns:**
 
-* `ESP_OK` — Success
-* `ESP_ERR_INVALID_ARG` — Invalid parameters
-* `ESP_ERR_NOT_SUPPORTED` — Sensor not detected
+ * `ESP_ERR_INVALID_STATE` — Camera sensor interface has already initialized
+ * `ESP_ERR_NOT_SUPPORTED` — Camera is not supported and it does not support JPEG if the current format is selected as JPEG
+ * `ESP_ERR_NOT_ALLOWED` — Failed to set the camera sensor frame size
+ * `ESP_ERR_NO_MEM` — Not enough memory for the esp_cam_sensor_io_parl resources
+ * `ESP_OK` — Success on allocating esp_cam_sensor_io_parl
 
 #### `esp_cam_del_sensor_io_parl`
 
@@ -713,8 +742,8 @@ Deinitialize the camera sensor interface.
 
 **Returns:**
 
-* `ESP_OK` — Success
-* `ESP_ERR_INVALID_STATE` — Camera sensor not initialized
+* `ESP_ERR_NOT_FOUND` — The camera sensor interface does not exist as it wasn't initialized
+* `ESP_OK` — Success on removing esp_cam_sensor_io_parl
 
 #### `esp_cam_sensor_io_parl_get_interface`
 
@@ -730,7 +759,8 @@ Gets the pointer to the sensor control interface if it wasn't grabbed on initial
 
 **Returns:**
 
-* `ESP_OK` — Success
+* `ESP_ERR_NOT_FOUND` — The camera sensor interface does not exist as it wasn't initialized
+* `ESP_OK` — Success on allocating esp_cam_sensor_io_parl handle
 
 #### `esp_cam_sensor_io_parl_frame_info`
 
@@ -747,7 +777,8 @@ Get frame resolution information for manual frame allocation.
 
 **Returns:**
 
-* `ESP_OK` — Success
+* `ESP_ERR_NOT_FOUND` — The camera sensor interface does not exist as it wasn't initialized
+* `ESP_OK` — Success on receiving the frame size
 
 #### `esp_cam_sensor_io_parl_connect`
 
@@ -763,7 +794,9 @@ Attach the DVP port from `esp_cam_io_parl` interface to apply suitable camera se
 
 **Returns:**
 
-* `ESP_OK` — Success
+* `ESP_ERR_NOT_FOUND` — The camera sensor interface does not exist as it wasn't initialized or an empty esp_cam_io_parl handle
+* `ESP_ERR_INVALID_STATE` — DVP port has already been connected or it is not enabled
+* `ESP_OK` — Success on attaching the DVP port
 
 #### `esp_cam_sensor_io_parl_disconnect`
 
@@ -775,7 +808,9 @@ Detach the DVP port from the camera sensor interface.
 
 **Returns:**
 
-* `ESP_OK` — Success
+* `ESP_ERR_NOT_FOUND` — The camera sensor interface does not exist as it wasn't initialized
+* `ESP_ERR_INVALID_STATE` — DVP port has already been disconnected
+* `ESP_OK` — Success on disconnecting the DVP port
 
 #### `esp_cam_sensor_io_parl_save_to_nvs`
 
@@ -844,6 +879,15 @@ ESP Parallel IO Camera component to interface with the DVP port of the following
 | `ESP_CAM_IO_PARL_PCLK_NEG` | Sample PCLK data on the negative edge |
 | `ESP_CAM_IO_PARL_PCLK_POS` | Sample PCLK data on the positive edge |
 
+#### `esp_cam_io_parl_queue_fill_mode_t`
+
+> Queue fill mode for frame buffers
+
+| Enumerator                       | Description                                          |
+| -------------------------------- | ---------------------------------------------------- |
+| `ESP_CAM_IO_PARL_QUEUE_LATEST`   | The user will always receive the most recent frames. |
+| `ESP_CAM_IO_PARL_QUEUE_PRESERVE` | The user may receive old frames.                     |
+
 #### `esp_cam_io_parl_config_t`
 
 > Configuration structure for `esp_cam_io_parl`.
@@ -852,9 +896,10 @@ ESP Parallel IO Camera component to interface with the DVP port of the following
 | -------------------- | -------------- | ----------------------------------------------------------- |
 | `data_width`         | `size_t`       | DVP data width (8 or 16 bits depending on SoC capabilities) |
 | `queue_frames`       | `size_t`       | Number of frames to be queued                               |
+| `fill_mode`          | `esp_cam_io_parl_queue_fill_mode_t` | Whether the queue accepts new frames, or append only when there is a free slot |
 | `frame_heap_caps`    | `uint32_t`     | Determines the frame buffer location on initialization      |
 | `pclk_io`            | `gpio_num_t`   | PCLK GPIO pin                                               |
-| `pclk_sample_edge`   | `esp_cam_io_parl_pclk_edge_t` | Sampling edge (`ESP_CAM_IO_PARL_PCLK_NEG` or `ESP_CAM_IO_PARL_PCLK_POS`)                              |
+| `pclk_sample_edge`   | `esp_cam_io_parl_pclk_edge_t` | Sampling edge (`ESP_CAM_IO_PARL_PCLK_NEG` or `ESP_CAM_IO_PARL_PCLK_POS`) |
 | `vsync_io`           | `gpio_num_t`   | VSYNC GPIO pin (Not implemented)                            |
 | `de_io`              | `gpio_num_t`   | DE (HREF) GPIO pin, set to -1 if unused                     |
 | `hsync_io`           | `gpio_num_t`   | HSYNC GPIO pin, set to -1 if unused                         |

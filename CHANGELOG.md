@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.0-beta.10
+
+### Bug Fixes
+- Now `esp_driver_ledc` has been moved from PRIV_REQUIRES to REQUIRES to prevent build errors on newer ESP-IDF versions (direct component import).
+
+### Features
+- Added High Performance Mode (HPM) as an experimental feature for OV3660 camera sensor. It allows images to be captured at a higher frame rate (e.g. 20FPS at 3MP). See `README.md` for more details.
+- Added FWVGA (854x480) resolution.
+- Exposed field `pclk_sample_edge` in examples to point out the fixed ESP-IDF issue with `esp_driver_parlio`.
+- Documented `fill_mode` in esp_cam_io_parl configuration as it was previously undocumented.
+- Reduced potentially false JPEG marker triggers by disabling JPEG footer on OV3660/OV5640 camera sensors.
+- Updated `API Reference` section in README.md. Measured frame rates have been also updated to include the OV3660 camera sensor.
+
 ## v0.1.0-beta.9
 
 ### Bug Fixes
@@ -7,7 +20,7 @@
 - Removed dependency `espressif/esp_jpeg` at the moment.
 
 ### Features
-- Added frame grab method `esp_cam_io_parl_queue_fill_mode_t` as `fill_mode` in `esp_cam_io_parl` configuration. `ESP_CAM_IO_PARL_QUEUE_LATEST` ensures that the latest frame should always be captured and inserted in the queue. `ESP_CAM_IO_PARL_QUEUE_PRESERVE` will preserve old frames in the queue until it has been grabbed by the user.
+- Added frame grab method `esp_cam_io_parl_queue_fill_mode_t` as `fill_mode` in esp_cam_io_parl configuration. `ESP_CAM_IO_PARL_QUEUE_LATEST` ensures that the latest frame should always be captured and inserted in the queue. `ESP_CAM_IO_PARL_QUEUE_PRESERVE` will preserve old frames in the queue until it has been grabbed by the user.
 - Added `simple_camera_capture_example` and `camera_web_server_example` component examples.
 - Renamed `simple_camera_stream_example` to `simple_camera_http_stream_example`. Now `esp_wifi_remote` and `esp_hosted` were added as dependencies for targets without Wi-Fi.
 - Changed minimum ESP-IDF version requirement to v5.4.
@@ -104,6 +117,4 @@
 
 ### Features
 
-
 - First pre-release version. VSYNC pin is not implemented and only JPEG images are supported.
-
