@@ -300,6 +300,7 @@ void app_main(void) {
         .queue_frames = 1,
         .frame_heap_caps = FRAME_BUFFER_CAPS,
         .pclk_io = CAM_PCLK_PIN,
+        .pclk_sample_edge = ESP_CAM_IO_PARL_PCLK_NEG, // This actually samples the data on rising edge due to a bug on esp_driver_parlio. Due to IDFGH-16954, change to ESP_CAM_IO_PARL_PCLK_POS if the camera does not capture any image.
         .de_io = CAM_HREF_PIN,
         .hsync_io = CAM_HSYNC_PIN,
         .vsync_io = CAM_VSYNC_PIN, // Not implemented
