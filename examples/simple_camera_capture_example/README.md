@@ -131,5 +131,4 @@ I (4206) main_task: Returned from app_main()
 
 - Link to the ESP-IDF feature's API reference, is attached in the README.md of the component [ESP-IDF: Parallel IO Camera Driver](https://components.espressif.com/components/haqqihaziq/esp_cam_io_parl)
 - [ESP-IDF Getting Started](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html#get-started)
-
 - [Project Configuration](https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/kconfig.html) (Kconfig Options)
