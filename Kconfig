@@ -136,7 +136,7 @@ menu "Parallel IO Camera configuration"
 
     config ESP_CAM_IO_PARL_PAYLOAD_SIZE
         int "DMA buffer size"
-        range 8192 65535
+        range 4096 65535
         default 32768
         help
             Maximum value of DMA payload buffer

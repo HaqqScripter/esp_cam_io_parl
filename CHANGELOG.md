@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.0-beta.11
+
+### Bug Fixes
+
+### Features
+
 ## v0.1.0-beta.10
 
 ### Bug Fixes

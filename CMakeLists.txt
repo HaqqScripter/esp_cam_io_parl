@@ -14,8 +14,8 @@ if(idf_version VERSION_GREATER_EQUAL "5.3" AND (IDF_TARGET STREQUAL "esp32c6" OR
     set(srcs
         driver/esp_cam_sensor_io_parl.c
         driver/esp_cam_io_parl.c
-        driver/sccb.c
-        driver/xclk.c
+        driver/esp_cam_io_parl_sccb.c
+        driver/esp_cam_io_parl_xclk.c
 
         sensors/ov2640.c
         sensors/ov3660.c
