@@ -14,8 +14,8 @@
 #include "freertos/task.h"
 #include "ov5640_regs.h"
 #include "ov5640_settings.h"
-#include "sccb.h"
-#include "xclk.h"
+#include "esp_cam_io_parl_sccb.h"
+#include "esp_cam_io_parl_xclk.h"
 #include <stdint.h>
 
 #include "esp_log.h"
@@ -395,8 +395,6 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
         goto fail;
     }
 
-    bool is_portrait_hd = (ratio == ESP_CAM_IO_PARL_ASPECT_RATIO_9X16 && framesize >= ESP_CAM_IO_PARL_FRAMESIZE_P_HD);
-
     if (!cam_sensor->status.binning) {
         ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, settings.total_x, settings.total_y) ||
               write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, settings.offset_x, settings.offset_y);
@@ -425,6 +423,7 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
 #if CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_DIS
         ret = set_pll(cam_sensor, false, 200, 4, 2, false, 2, true, 4);
 #else
+        bool is_portrait_hd = (ratio == ESP_CAM_IO_PARL_ASPECT_RATIO_9X16 && framesize >= ESP_CAM_IO_PARL_FRAMESIZE_P_HD);
         uint8_t multiplier = is_portrait_hd ? 120 : 138;
         uint8_t pclk_root_div = is_portrait_hd ? 3 : 2;
         int gaincelling_level = cam_sensor->status.gainceiling;
@@ -1115,6 +1114,9 @@ static int init_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     // Reduce noise and sharpness at initialization
     cam_sensor->set_sharpness(cam_sensor, -3);
     cam_sensor->set_denoise(cam_sensor, 8);
+    
+    // Assuming the default value
+    cam_sensor->set_gainceiling(cam_sensor, 248);
 
 #if CONFIG_ESP_CAM_IO_PARL_OV5640_AF
     ESP_LOGI(TAG, "Initializing autofocus mode");

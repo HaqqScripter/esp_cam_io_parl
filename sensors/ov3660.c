@@ -13,8 +13,8 @@
 #include "freertos/task.h"
 #include "ov3660_regs.h"
 #include "ov3660_settings.h"
-#include "sccb.h"
-#include "xclk.h"
+#include "esp_cam_io_parl_sccb.h"
+#include "esp_cam_io_parl_xclk.h"
 #include <stdint.h>
 
 #include "esp_log.h"
@@ -337,7 +337,7 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
     cam_sensor->status.scale = !((w == settings.max_width && h == settings.max_height) || (w == (settings.max_width / 2) && h == (settings.max_height / 2)));
 
     ret = write_addr_reg(cam_sensor->sccb_address, X_ADDR_ST_H, settings.start_x, settings.start_y) ||
-          write_addr_reg(cam_sensor->sccb_address, X_ADDR_END_H, settings.end_x, settings.end_y) ||
+          write_addr_reg(cam_sensor->sccb_address, X_ADDR_END_H, settings.end_x, settings.end_y - (framesize < ESP_CAM_IO_PARL_FRAMESIZE_128X128 ? 6 : 0)) ||
           write_addr_reg(cam_sensor->sccb_address, X_OUTPUT_SIZE_H, w, h);
 
     if (ret) {
@@ -346,7 +346,7 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
 
     if (cam_sensor->status.binning) {
         ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, settings.total_x, (settings.total_y / 2) + 1) ||
-              write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, 8, 2);
+              write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, 8, framesize < ESP_CAM_IO_PARL_FRAMESIZE_240X240 ? 1 : 2);
     } else {
         ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, settings.total_x, settings.total_y) ||
               write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, 16, 4);
@@ -370,17 +370,17 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
             // 40MHz SYSCLK and 10MHz PCLK
             ret = set_pll(cam_sensor, false, 24, 1, 3, false, 0, true, 8);
 #else
-            // 70MHz SYSCLK and 17.5MHz PCLK
-            ret = set_pll(cam_sensor, false, 21, 1, 1, false, 0, true, 8);
+            // 66.7MHz SYSCLK and 16.7MHz PCLK
+            ret = set_pll(cam_sensor, false, 20, 1, 1, false, 0, true, 8);
 #endif
         } else {
 #if CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_ANY_RES
-            // 70MHz SYSCLK and 17.5MHz PCLK
-            ret = set_pll(cam_sensor, false, 21, 1, 1, false, 0, true, 8);
+            // 66.7MHz SYSCLK and 16.7MHz PCLK
+            ret = set_pll(cam_sensor, false, 20, 1, 1, false, 0, true, 8);
 #elif CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_HIGH_RES
             if (framesize > ESP_CAM_IO_PARL_FRAMESIZE_XGA) {
-                // 70MHz SYSCLK and 17.5MHz PCLK
-                ret = set_pll(cam_sensor, false, 21, 1, 1, false, 0, true, 8);
+                // 66.7MHz SYSCLK and 16.7MHz PCLK
+                ret = set_pll(cam_sensor, false, 20, 1, 1, false, 0, true, 8);
             }
             else {
                 // 50MHz SYSCLK and 10MHz PCLK
@@ -995,6 +995,10 @@ static int init_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     // Reduce noise and sharpness at initialization
     cam_sensor->set_sharpness(cam_sensor, -3);
     cam_sensor->set_denoise(cam_sensor, 8);
+    
+    // Assuming the default value
+    cam_sensor->set_gainceiling(cam_sensor, 248);
+
     return 0;
 }
 

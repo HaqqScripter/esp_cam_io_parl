@@ -12,8 +12,8 @@
 #include "freertos/task.h"
 #include "ov2640_regs.h"
 #include "ov2640_settings.h"
-#include "sccb.h"
-#include "xclk.h"
+#include "esp_cam_io_parl_sccb.h"
+#include "esp_cam_io_parl_xclk.h"
 #include <stdint.h>
 
 #include "esp_log.h"
