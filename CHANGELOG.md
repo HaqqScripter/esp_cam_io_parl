@@ -3,8 +3,13 @@
 ## v0.1.0-beta.11
 
 ### Bug Fixes
+- Fixed warning message appearing when HPM is disabled on OV5640 when building the user application.
+- Fixed errors for NVS functions when saving/loading/deleting the camera configurations due to extremely long NVS key name.
 
 ### Features
+- Improved HPM stability for OV3660 camera sensor.
+- Now minimum payload buffer size is 4096 to help reduce jitter at lower resolutions.
+- `sccb` and `xclk` file name has been prefixed with `esp_cam_io_parl`.
 
 ## v0.1.0-beta.10
 
