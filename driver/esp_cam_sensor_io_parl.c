@@ -1,4 +1,6 @@
 #include "esp_cam_sensor_io_parl.h"
+#include "esp_cam_io_parl_sccb.h"
+#include "esp_cam_io_parl_xclk.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_err.h"
@@ -7,10 +9,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs.h"
-#include "sccb.h"
 #include "sdkconfig.h"
 #include "time.h"
-#include "xclk.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -81,8 +81,8 @@ esp_cam_sensor_io_parl_info_t *esp_cam_sensor_io_parl_get_info(esp_cam_sensor_io
     return NULL;
 }
 
-static const char *ESP_CAM_SENSOR_IO_PARL_NVS_KEY = "esp_cam_sensor_io_parl";
-static const char *ESP_CAM_SENSOR_IO_PARL_PIXFORMAT_NVS_KEY = "esp_cam_sensor_io_parl_pixformat";
+static const char *ESP_CAM_SENSOR_IO_PARL_NVS_KEY = "parlio_cam";
+static const char *ESP_CAM_SENSOR_IO_PARL_PIXFORMAT_NVS_KEY = "parlio_cam_fmt";
 
 static esp_cam_sensor_io_parl_handle_t esp_cam_sensor_io_parl_interface = NULL;
 
@@ -268,6 +268,8 @@ esp_err_t esp_cam_new_sensor_io_parl(const esp_cam_sensor_io_parl_config_t *conf
     esp_cam_sensor_io_parl_interface->status.framesize = frame_size;
     esp_cam_sensor_io_parl_interface->pixformat = pix_format;
 
+    esp_cam_sensor_io_parl_interface->init_status(esp_cam_sensor_io_parl_interface);
+
     ESP_LOGD(TAG, "Setting frame size to %dx%d", esp_cam_sensor_io_parl_resolution[frame_size].width, esp_cam_sensor_io_parl_resolution[frame_size].height);
     if (esp_cam_sensor_io_parl_interface->set_framesize(esp_cam_sensor_io_parl_interface, frame_size) != 0) {
         ESP_LOGE(TAG, "Failed to set frame size");
@@ -318,7 +320,6 @@ esp_err_t esp_cam_new_sensor_io_parl(const esp_cam_sensor_io_parl_config_t *conf
     if (pix_format == ESP_CAM_IO_PARL_PIXFORMAT_JPEG) {
         esp_cam_sensor_io_parl_interface->set_quality(esp_cam_sensor_io_parl_interface, config->jpeg_quality);
     }
-    esp_cam_sensor_io_parl_interface->init_status(esp_cam_sensor_io_parl_interface);
 
     *ret_handle = esp_cam_sensor_io_parl_interface;
     return ESP_OK;
