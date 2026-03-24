@@ -3,7 +3,7 @@
 ## v0.1.0-beta.11
 
 ### Bug Fixes
-- Fixed warning message appearing when HPM is disabled on OV5640 when building the user application.
+- Fixed warning message appearing if HPM is disabled on OV5640 when building the user application.
 - Fixed errors for NVS functions when saving/loading/deleting the camera configurations due to extremely long NVS key name.
 
 ### Features
