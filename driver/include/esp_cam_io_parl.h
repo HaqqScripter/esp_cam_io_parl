@@ -5,11 +5,41 @@
 #pragma once
 
 #include "esp_err.h"
+#include "esp_idf_version.h"
 #include "soc/gpio_num.h"
 #include "hal/parlio_types.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "driver/parlio_types.h"
+
+#if ESP_IDF_VERSION_MAJOR >= 6
+    #define ESP_CAM_IO_PARL_EDGE_FIX 1
+#elif ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 5
+    #define ESP_CAM_IO_PARL_EDGE_FIX (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 3))
+#elif ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR == 4
+    #define ESP_CAM_IO_PARL_EDGE_FIX (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 4))
+#elif ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR == 3
+    #define ESP_CAM_IO_PARL_EDGE_FIX (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 5))
+#elif ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR == 2
+    #define ESP_CAM_IO_PARL_EDGE_FIX (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 7))
+#else
+    // Any older branches do not have the fix!
+    #define ESP_CAM_IO_PARL_EDGE_FIX 0
+#endif
+
+
+typedef enum {
+    ESP_CAM_IO_PARL_QUEUE_PENDING, // Frame buffers that are ready to be filled
+    ESP_CAM_IO_PARL_QUEUE_READY,   // Frame buffers that are ready to be used
+    ESP_CAM_IO_PARL_QUEUE_FAIL,   // Frame buffers that were failed to be released
+    ESP_CAM_IO_PARL_QUEUE_MAX,
+} esp_cam_io_parl_queue_type_t;
+
+typedef enum {
+    ESP_CAM_IO_PARL_JPEG_IDLE,     // Idle state, search for SOI marker
+    ESP_CAM_IO_PARL_JPEG_HEADER,   // SOI marker found, now scan for SOS
+    ESP_CAM_IO_PARL_JPEG_ENTROPY,  // SOS marker found, now look for EOI
+} esp_cam_io_parl_capture_state_t;
 
 /**
  * @brief PCLK edge in esp_cam_io_parl configuration
@@ -98,7 +128,7 @@ typedef struct esp_cam_io_parl_t {
         size_t total_bytes; /*!< Total bytes of the frame */
         int state; /*!< Frame capture state */
     } info; /*!< Frame buffer info */
-    QueueHandle_t queue_handle[3]; /*!< Queue handle for receiving frames */
+    QueueHandle_t queue_handle[ESP_CAM_IO_PARL_QUEUE_MAX]; /*!< Queue handle for receiving frames */
     TaskHandle_t cam_task_handle;
     parlio_rx_unit_handle_t rx_unit; /*!< PARLIO RX unit */
     parlio_rx_delimiter_handle_t rx_delimiter; /*!< PARLIO RX delimiter */
