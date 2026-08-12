@@ -11,6 +11,7 @@
 ### Features
 - Improved JPEG parsing stability to further reduce JPEG corruptions.
 - Improved OV5640 PLL settings to keep VCO frequency below 800MHz to ensure stability. Now maximum fps for a full 5MP image is roughly 12fps (previously 10fps). HPM hits this VCO frequency limit safely (832MHz VCO), while maintaining a near 15fps image.
+- Implement auto banding filter for OV5640.
 - Improved HPM stability for OV3660 camera sensor.
 - Now minimum payload buffer size is 4096 to help reduce jitter at lower resolutions.
 - `sccb` and `xclk` file name has been prefixed with `esp_cam_io_parl`.

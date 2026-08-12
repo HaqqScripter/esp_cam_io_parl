@@ -41,7 +41,7 @@ The following table shows the circumstances for each target. OV5640 and OV3660 c
 
 ## Important to Remember
 
-- It is recommended to have PSRAM installed and enabled for higher resolutions. Therefore, the ESP32-H2 is not recommended for image streaming due to its lack of PSRAM support and limited internal RAM. The ESP32-C6 can handle resolutions up to SVGA (tested with Wi-Fi enabled and a streaming web server, XGA can be reached with some tweaks).
+- It is recommended to have PSRAM installed and enabled for higher resolutions. Therefore, the ESP32-H2/H21 is not recommended for image streaming due to its lack of PSRAM support and limited internal RAM. The ESP32-C6 can handle resolutions up to SVGA (tested with Wi-Fi enabled and a streaming web server, XGA can be reached with some tweaks).
 - This component currently only accepts JPEG image inputs from DVP sensors due to the limitations of the Parallel IO driver for some targets (e.g. ESP32-H2 and ESP32-C5). As a result, it uses software delimiter with PCLK gating to allow streaming JPEG image from the following image sensors (except OV2640 & NT99141).
 - Currently only OV3660 and OV5640 sensors are implemented to have gated PCLK signals. OV2640 & NT99141 requires the target to have valid signals (e.g. ESP32-C6 and ESP32-P4) so it can properly interface with the following sensor. It is highly recommended to use OV5640 or OV3660 for targets with limited data width. But beware that JPEG frames tend to glitch when PCLK is gated, especially when changing resolutions.
 - This component does not utilize VSYNC signals for controlling frames at the moment, support for receiving raw data will be possible if it gets implemented. VSYNC pin will be added as a part of ETM trigger or pulse delimiter for the Parallel IO peripheral for low latency.
@@ -567,6 +567,7 @@ void app_main(void) {
         .fill_mode = ESP_CAM_IO_PARL_QUEUE_LATEST,
         .frame_heap_caps = FRAME_BUFFER_CAPS,
         .pclk_io = CAM_PCLK_PIN,
+        .pclk_sample_edge = ESP_CAM_IO_PARL_PCLK_POS, // esp_cam_sensor_io_parl configures the camera sensor to sample the data on positive edge
         .de_io = CAM_HREF_PIN,
         .hsync_io = CAM_HSYNC_PIN,
         .vsync_io = CAM_VSYNC_PIN, // Not implemented
