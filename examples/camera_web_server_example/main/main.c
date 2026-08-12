@@ -861,7 +861,7 @@ void app_main(void) {
     static esp_cam_io_parl_config_t esp_cam_io_parl_config = {
         .data_width = 8,
         .pclk_io = CAM_PCLK_PIN,
-        .pclk_sample_edge = ESP_CAM_IO_PARL_PCLK_NEG, // This actually samples the data on rising edge due to a bug on esp_driver_parlio. Due to IDFGH-16954, change to ESP_CAM_IO_PARL_PCLK_POS if the camera does not capture any image.
+        .pclk_sample_edge = ESP_CAM_IO_PARL_PCLK_POS, // esp_cam_sensor_io_parl configures the camera sensor to sample the data on positive edge
         .queue_frames = 1,
         .fill_mode = ESP_CAM_IO_PARL_QUEUE_LATEST,
         .frame_heap_caps = FRAME_ALLOC_CAPS,
