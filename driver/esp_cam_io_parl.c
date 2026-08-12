@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
-
 #include "esp_check.h"
+#include "esp_cpu.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
@@ -31,19 +31,6 @@ static const char *TAG = "esp_cam_io_parl";
 #define CONFIG_CAMERA_PAYLOAD_BUFFER_SIZE 0x8000 // 32768
 #endif
 
-typedef enum {
-    ESP_CAM_IO_PARL_QUEUE_PENDING, // Frame buffers that are ready to be filled
-    ESP_CAM_IO_PARL_QUEUE_READY,   // Frame buffers that are ready to be used
-    ESP_CAM_IO_PARL_QUEUE_FAIL,   // Frame buffers that were failed to be released
-    ESP_CAM_IO_PARL_QUEUE_MAX,
-} esp_cam_io_parl_queue_type_t;
-
-typedef enum {
-    ESP_CAM_IO_PARL_JPEG_IDLE,     // Idle state, search for SOI marker
-    ESP_CAM_IO_PARL_JPEG_HEADER,   // SOI marker found, now scan for SOS
-    ESP_CAM_IO_PARL_JPEG_ENTROPY,  // SOS marker found, now look for EOI
-} esp_cam_io_parl_capture_state_t;
-
 static bool IRAM_ATTR esp_cam_io_parl_received_partial_data(parlio_rx_unit_handle_t rx_unit, const parlio_rx_event_data_t *edata, void *user_data) {
     esp_cam_io_parl_handle_t esp_cam_io_parl = (esp_cam_io_parl_handle_t)user_data;
     const uint8_t *chunk = edata->data;
@@ -62,8 +49,8 @@ static bool IRAM_ATTR esp_cam_io_parl_received_partial_data(parlio_rx_unit_handl
                 bool is_split = (esp_cam_io_parl->info.previous_byte == 0xFF && chunk[offset] == 0xD8);
                 bool is_normal = (offset + 1 < chunk_len && chunk[offset + 1] == 0xD8);
                 if (is_split || is_normal) {
-                    esp_cam_io_parl->info.index = 0;
                     if (xQueueReceiveFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_PENDING], &esp_cam_io_parl->info.frame, &_hp_task_woken)) {
+                        esp_cam_io_parl->info.index = 0;
                         esp_cam_io_parl->info.frame.buffer[esp_cam_io_parl->info.index++] = 0xFF;
                         esp_cam_io_parl->info.frame.buffer[esp_cam_io_parl->info.index++] = 0xD8;
                         esp_cam_io_parl->info.state = ESP_CAM_IO_PARL_JPEG_HEADER;
@@ -232,7 +219,11 @@ esp_err_t esp_cam_new_io_parl(const esp_cam_io_parl_config_t *config, esp_cam_io
         if (config->de_io >= 0) {
             parlio_rx_level_delimiter_config_t rx_delimiter_config = {
                 .valid_sig_line_id = PARLIO_RX_UNIT_MAX_DATA_WIDTH - 1,
+#if ESP_CAM_IO_PARL_EDGE_FIX
                 .sample_edge = config->pclk_sample_edge,
+#else
+                .sample_edge = (config->pclk_sample_edge == PARLIO_SAMPLE_EDGE_POS) ? PARLIO_SAMPLE_EDGE_NEG : PARLIO_SAMPLE_EDGE_POS,
+#endif
                 .eof_data_len = MIN(esp_cam_io_parl->payload_size, UINT16_MAX),
                 .timeout_ticks = 0,
                 .flags = {
@@ -244,7 +235,11 @@ esp_err_t esp_cam_new_io_parl(const esp_cam_io_parl_config_t *config, esp_cam_io
         else if (config->hsync_io >= 0) {
             parlio_rx_pulse_delimiter_config_t rx_delimiter_config = {
                 .valid_sig_line_id = PARLIO_RX_UNIT_MAX_DATA_WIDTH - 1,
+#if ESP_CAM_IO_PARL_EDGE_FIX
                 .sample_edge = config->pclk_sample_edge,
+#else
+                .sample_edge = (config->pclk_sample_edge == PARLIO_SAMPLE_EDGE_POS) ? PARLIO_SAMPLE_EDGE_NEG : PARLIO_SAMPLE_EDGE_POS,
+#endif
                 .eof_data_len = MIN(esp_cam_io_parl->payload_size, UINT16_MAX),
                 .timeout_ticks = 0,
                 .flags = {
@@ -263,7 +258,11 @@ esp_err_t esp_cam_new_io_parl(const esp_cam_io_parl_config_t *config, esp_cam_io
             ESP_LOGD(TAG, "Valid signal can not be used, ignoring the assigned pin");
         }
         parlio_rx_soft_delimiter_config_t rx_delimiter_config = {
+#if ESP_CAM_IO_PARL_EDGE_FIX
             .sample_edge = config->pclk_sample_edge,
+#else
+            .sample_edge = (config->pclk_sample_edge == PARLIO_SAMPLE_EDGE_POS) ? PARLIO_SAMPLE_EDGE_NEG : PARLIO_SAMPLE_EDGE_POS,
+#endif
             .eof_data_len = MIN(esp_cam_io_parl->payload_size, UINT16_MAX),
             .timeout_ticks = 0,
         };
@@ -303,10 +302,14 @@ esp_err_t esp_cam_del_io_parl(esp_cam_io_parl_handle_t esp_cam_io_parl) {
 
 esp_err_t esp_cam_io_parl_set_alloc_size(esp_cam_io_parl_handle_t esp_cam_io_parl, uint32_t alloc_size, uint32_t heap_caps) {
     ESP_RETURN_ON_FALSE(esp_cam_io_parl && alloc_size > MIN_FRAME_ALLOC_SIZE, ESP_ERR_INVALID_ARG, TAG, "Invalid arguments");
+    //esp_cam_io_parl->info.state = ESP_CAM_IO_PARL_JPEG_IDLE;
+    //ESP_RETURN_ON_ERROR(parlio_rx_soft_delimiter_start_stop(esp_cam_io_parl->rx_unit, esp_cam_io_parl->rx_delimiter, false), TAG, "Failed to start PARLIO RX soft delimiter");
+    //ESP_LOGI(TAG, "CPU cycles for parlio_rx_soft_delimiter_start_stop: %u", end);
     esp_cam_io_parl->alloc_size = alloc_size;
     if (heap_caps) {
         esp_cam_io_parl->alloc_heap_caps = heap_caps;
     }
+    //ESP_RETURN_ON_ERROR(parlio_rx_soft_delimiter_start_stop(esp_cam_io_parl->rx_unit, esp_cam_io_parl->rx_delimiter, true), TAG, "Failed to start PARLIO RX soft delimiter");
     return ESP_OK;
 }
 
@@ -324,7 +327,7 @@ esp_err_t esp_cam_io_parl_enable(esp_cam_io_parl_handle_t esp_cam_io_parl, bool 
         };
         ESP_RETURN_ON_ERROR(parlio_rx_unit_receive(esp_cam_io_parl->rx_unit, esp_cam_io_parl->payload, esp_cam_io_parl->payload_size, &receive_config), TAG, "Failed to receive from PARLIO RX");
     }
-    ESP_RETURN_ON_FALSE(xTaskCreateWithCaps(esp_cam_io_parl_task, "esp_cam_io_parl_task", 4096, esp_cam_io_parl, 16, &esp_cam_io_parl->cam_task_handle, MALLOC_CAP_DEFAULT), ESP_ERR_NO_MEM, TAG, "Failed to allocate camera task");
+    ESP_RETURN_ON_FALSE(xTaskCreateWithCaps(esp_cam_io_parl_task, "esp_cam_io_parl_task", 4096, esp_cam_io_parl, 2, &esp_cam_io_parl->cam_task_handle, MALLOC_CAP_DEFAULT), ESP_ERR_NO_MEM, TAG, "Failed to allocate camera task");
     return ESP_OK;
 }
 

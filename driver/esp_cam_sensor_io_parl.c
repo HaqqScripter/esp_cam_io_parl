@@ -1,7 +1,9 @@
 #include "esp_cam_sensor_io_parl.h"
+#include "esp_cam_io_parl.h"
 #include "esp_cam_io_parl_sccb.h"
 #include "esp_cam_io_parl_xclk.h"
 #include "driver/gpio.h"
+#include "driver/parlio_rx.h"
 #include "esp_check.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
@@ -116,21 +118,35 @@ static esp_cam_sensor_io_parl_controlled_t *esp_cam_sensor_io_parl_controlled_in
 
 static int set_framesize_io_parl_interface(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sensor_io_parl_framesize_t framesize) {
     if (esp_cam_sensor_io_parl_controlled_interface && cam_sensor->dvp_interface) {
+        // Stop the PARLIO RX unit software delimiter
+        if (cam_sensor->dvp_interface->use_soft_delimiter) parlio_rx_soft_delimiter_start_stop(cam_sensor->dvp_interface->rx_unit, cam_sensor->dvp_interface->rx_delimiter, false);
+
         esp_cam_sensor_io_parl_resolution_info_t resolution = esp_cam_sensor_io_parl_resolution[framesize];
         uint32_t alloc_size = cam_sensor->pixformat != ESP_CAM_IO_PARL_PIXFORMAT_JPEG ? resolution.width * resolution.height * cam_sensor->pixformat_bpp : (resolution.width * resolution.height * CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_MUL / CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_DIV + CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_PADDING);
         esp_cam_io_parl_set_alloc_size(cam_sensor->dvp_interface, alloc_size, cam_sensor->dvp_interface->alloc_heap_caps);
 
-        return esp_cam_sensor_io_parl_controlled_interface->set_framesize(cam_sensor, framesize);
+        int ret = esp_cam_sensor_io_parl_controlled_interface->set_framesize(cam_sensor, framesize);
+
+        // Start the PARLIO RX unit software delimiter
+        if (cam_sensor->dvp_interface->use_soft_delimiter) parlio_rx_soft_delimiter_start_stop(cam_sensor->dvp_interface->rx_unit, cam_sensor->dvp_interface->rx_delimiter, true);
+        return ret;
     }
     return cam_sensor->set_framesize(cam_sensor, framesize);
 }
 
 static int set_res_raw_io_parl_interface(esp_cam_sensor_io_parl_handle_t cam_sensor, int startX, int startY, int endX, int endY, int offsetX, int offsetY, int totalX, int totalY, int outputX, int outputY, bool scale, bool binning) {
     if (esp_cam_sensor_io_parl_controlled_interface && cam_sensor->dvp_interface) {
+        // Stop the PARLIO RX unit software delimiter
+        if (cam_sensor->dvp_interface->use_soft_delimiter) parlio_rx_soft_delimiter_start_stop(cam_sensor->dvp_interface->rx_unit, cam_sensor->dvp_interface->rx_delimiter, false);
+
         uint32_t alloc_size = cam_sensor->pixformat != ESP_CAM_IO_PARL_PIXFORMAT_JPEG ? outputX * outputY * cam_sensor->pixformat_bpp : (outputX * outputY * CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_MUL / CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_DIV + CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_PADDING);
         esp_cam_io_parl_set_alloc_size(cam_sensor->dvp_interface, alloc_size, cam_sensor->dvp_interface->alloc_heap_caps);
 
-        return esp_cam_sensor_io_parl_controlled_interface->set_res_raw(cam_sensor, startX, startY, endX, endY, offsetX, offsetY, totalX, totalY, outputX, outputY, scale, binning);
+        int ret = esp_cam_sensor_io_parl_controlled_interface->set_res_raw(cam_sensor, startX, startY, endX, endY, offsetX, offsetY, totalX, totalY, outputX, outputY, scale, binning);
+
+        // Start the PARLIO RX unit software delimiter
+        if (cam_sensor->dvp_interface->use_soft_delimiter) parlio_rx_soft_delimiter_start_stop(cam_sensor->dvp_interface->rx_unit, cam_sensor->dvp_interface->rx_delimiter, true);
+        return ret;
     }
     return cam_sensor->set_res_raw(cam_sensor, startX, startY, endX, endY, offsetX, offsetY, totalX, totalY, outputX, outputY, scale, binning);
 }
