@@ -50,7 +50,7 @@ The following table shows the circumstances for each target. OV5640 and OV3660 c
 
 **esp_cam_io_parl** supports DVP camera sensors with minimal GPIO resources possible. Each cases have their own limitations.
 
-### 8-bit DVP (ESP32-C5/C6/H2/H4/P4):
+### 8-bit DVP (ESP32-C5/C6/H2/H21/H4/P4/S31):
 | Situation | GPIO pins used | Pin description | Image format | Camera sensors | Support status |
 | --------- | -------------- | --------------- | ------------ | -------------- | -------------- |
 | Case 1 | 9 | D0-D7<br>PCLK   | JPEG | OV3660<br>OV5640 | ✅ Fully implemented |
@@ -62,10 +62,10 @@ The following table shows the circumstances for each target. OV5640 and OV3660 c
 * Cases 1 to 3 are fully used by the PARLIO RX peripheral.
 * Case 1 and 2 will force JPEG mode to be enabled. In this mode, CPU usage is heavily involved on software framing to parse the JPEG data.
 * On case 4, VSYNC will be bound to ETM or Interrupt.
-* ESP32-C5/H2/H4 only allows HSYNC (pulse delimiter) on 8-bit width. HREF will operate as HSYNC.
-* ESP32-C6/P4 allows HREF (level delimiter) to be used if defined, otherwise use HSYNC.
+* ESP32-C5/H2/H21/H4 only allows HSYNC (pulse delimiter) on 8-bit width. HREF will operate as HSYNC.
+* ESP32-C6/P4/S31 allows HREF (level delimiter) to be used if defined, otherwise use HSYNC.
 
-### 16-bit DVP (ESP32-C6/P4):
+### 16-bit DVP (ESP32-C6/P4/S31):
 | Situation | GPIO pins used | Pin description | Image format | Support status |
 | --------- | -------------- | --------------- | ------------ | -------------- | 
 | Case 1 | 17 | D0-D15<br>PCLK | JPEG | ✅ Fully implemented |
@@ -78,7 +78,7 @@ The following table shows the circumstances for each target. OV5640 and OV3660 c
 * Typically MCU-to-MCU communication is used as most DVP camera doesn't support 16-bit width.
 * Case 1 and 2 will force JPEG mode to be enabled. In this mode, CPU usage is heavily involved on software framing to parse the JPEG data.
 * On case 4, VSYNC will be bound to ETM or Interrupt.
-* ESP32-C6/P4 only allows HSYNC (pulse delimiter) on 16-bit width. HREF will operate as HSYNC.
+* ESP32-C6/P4/S31 only allows HSYNC (pulse delimiter) on 16-bit width. HREF will operate as HSYNC.
 
 ## Additional Notes
 
