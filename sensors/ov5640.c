@@ -124,9 +124,7 @@ static int write_addr_reg(uint8_t sccb_address, const uint16_t reg,
 #define write_reg_bits(sccb_address, reg, mask, enable)                        \
     set_reg_bits(sccb_address, reg, 0, mask, (enable) ? (mask) : 0)
 
-static int calc_sysclk(int xclk, bool pll_bypass, int pll_multiplier,
-                       int pll_sys_div, int pre_div, bool root_2x,
-                       int pclk_root_div, bool pclk_manual, int pclk_div) {
+static int calc_sysclk(int xclk, bool pll_bypass, int pll_multiplier, int pll_sys_div, int pre_div, bool root_2x, int pclk_root_div, bool pclk_manual, int pclk_div, bool output_log) {
     const float pll_pre_div2x_map[] = {1, 1, 2, 3, 4, 1.5, 6, 2.5, 8};
     const int pll_pclk_root_div_map[] = {1, 2, 4, 8};
 
@@ -139,18 +137,15 @@ static int calc_sysclk(int xclk, bool pll_bypass, int pll_multiplier,
     unsigned int pll_pclk_root_div = pll_pclk_root_div_map[pclk_root_div];
 
     unsigned int REFIN = xclk / pll_pre_div;
+    unsigned int VCO = REFIN * pll_multiplier;
 
-    unsigned int VCO = REFIN * pll_multiplier / root_2x_div;
-
-    unsigned int PLL_CLK = pll_bypass ? (xclk) : (VCO / pll_sys_div * 2 / 5); // 5 here is 10bit mode / 2, for 8bit
-                                                                              // it should be 4 (reg 0x3034)
-
-    unsigned int PCLK = PLL_CLK / pll_pclk_root_div /
-                        ((pclk_manual && pclk_div) ? pclk_div : 2);
+    int bit_div = 4; // 8-bit mode
+    unsigned int PLL_CLK = pll_bypass ? (xclk) : (VCO / pll_sys_div / root_2x_div * 2 / bit_div); // 5 here is 10bit mode / 2, for 8bit it should be 4 (reg 0x3034)
+    unsigned int PCLK = PLL_CLK / pll_pclk_root_div / ((pclk_manual && pclk_div) ? pclk_div : 2);
 
     unsigned int SYSCLK = PLL_CLK / 4;
 
-    ESP_LOGI(TAG, "Calculated XVCLK: %d Hz, REFIN: %u Hz, VCO: %u Hz, PLL_CLK: %u Hz, SYSCLK: %u Hz, PCLK: %u Hz", xclk, REFIN, VCO, PLL_CLK, SYSCLK, PCLK);
+    if (output_log) ESP_LOGI(TAG, "Calculated XVCLK: %d Hz, REFIN: %u Hz, VCO: %u Hz, PLL_CLK: %u Hz, SYSCLK: %u Hz, PCLK: %u Hz", xclk, REFIN, VCO, PLL_CLK, SYSCLK, PCLK);
     return SYSCLK;
 }
 
@@ -171,7 +166,7 @@ static int set_pll(esp_cam_sensor_io_parl_handle_t cam_sensor, bool bypass, uint
              pclk_manual, pclk_div);
 
     calc_sysclk(cam_sensor->xclk_freq_hz, bypass, multiplier, sys_div, pre_div,
-                root_2x, pclk_root_div, pclk_manual, pclk_div);
+                root_2x, pclk_root_div, pclk_manual, pclk_div, true);
 
     ret = write_reg(cam_sensor->sccb_address, 0x3039, bypass ? 0x80 : 0x00);
     if (ret == 0) {
@@ -352,14 +347,14 @@ static int set_image_options(esp_cam_sensor_io_parl_handle_t cam_sensor, bool re
             write_reg(cam_sensor->sccb_address, Y_INCREMENT, 0x31); // odd:3, even: 1
     }
 
-    if (ret == 0 && reset_state) {
-        write_reg(cam_sensor->sccb_address, 0x3003, 0x01); // Reset DVP
-        esp_rom_delay_us(6000); // 6ms delay
-        write_reg(cam_sensor->sccb_address, 0x3003, 0x00);
-        esp_rom_delay_us(3000); // 3ms delay
-        write_reg(cam_sensor->sccb_address, 0x4407, cam_sensor->status.quality & 0x3f);
-        write_reg(cam_sensor->sccb_address, 0x3007, 0xff); // Enable DVP PCLK
-    }
+    //if (ret == 0 && reset_state) {
+    //    write_reg(cam_sensor->sccb_address, 0x3003, 0x01); // Reset DVP
+    //    esp_rom_delay_us(6000); // 6ms delay
+    //    write_reg(cam_sensor->sccb_address, 0x3003, 0x00);
+    //    esp_rom_delay_us(3000); // 3ms delay
+    //    write_reg(cam_sensor->sccb_address, 0x4407, cam_sensor->status.quality & 0x3f);
+    //    write_reg(cam_sensor->sccb_address, 0x3007, 0xff); // Enable DVP PCLK
+    //}
 
     ESP_LOGD(TAG, "Set Image Options: Compression: %u, Binning: %u, V-Flip: %u, H-Mirror: %u, Reg-4514: 0x%02x", cam_sensor->pixformat == ESP_CAM_IO_PARL_PIXFORMAT_JPEG, cam_sensor->status.binning, cam_sensor->status.vflip, cam_sensor->status.hmirror, reg4514);
     return ret;
@@ -384,9 +379,14 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
     cam_sensor->status.scale = !((w == settings.max_width && h == settings.max_height) ||
           (w == (settings.max_width / 2) && h == (settings.max_height / 2))) && !(framesize == ESP_CAM_IO_PARL_FRAMESIZE_QSXGA || framesize == ESP_CAM_IO_PARL_FRAMESIZE_SXGAM);
 
+    uint16_t hts = cam_sensor->status.binning ? ((w > 1024) ? (settings.total_x - 200) : 2060) : settings.total_x;
+    uint16_t vts = cam_sensor->status.binning ? (settings.total_y / 2) : settings.total_y;
+    uint16_t offset_x = cam_sensor->status.binning ? settings.offset_x / 2 : settings.offset_x;
+    uint16_t offset_y = cam_sensor->status.binning ? settings.offset_y / 2 + 1 : settings.offset_y;
+
     // Disable DVP PCLK
-    ret = write_reg(cam_sensor->sccb_address, 0x4407, 0x3f) ||
-          write_reg(cam_sensor->sccb_address, 0x3007, 0xfb) ||
+    ret = //write_reg(cam_sensor->sccb_address, 0x4407, 0x3f) ||
+          //write_reg(cam_sensor->sccb_address, 0x3007, 0xfb) ||
           write_addr_reg(cam_sensor->sccb_address, X_ADDR_ST_H, settings.start_x, settings.start_y) ||
           write_addr_reg(cam_sensor->sccb_address, X_ADDR_END_H, settings.end_x, settings.end_y) ||
           write_addr_reg(cam_sensor->sccb_address, X_OUTPUT_SIZE_H, w, h);
@@ -395,17 +395,8 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
         goto fail;
     }
 
-    if (!cam_sensor->status.binning) {
-        ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, settings.total_x, settings.total_y) ||
-              write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, settings.offset_x, settings.offset_y);
-    } else {
-        if (w > 1024) {
-            ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, settings.total_x - 200, settings.total_y / 2);
-        } else {
-            ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, 2060, settings.total_y / 2);
-        }
-        ret |= write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, settings.offset_x / 2, settings.offset_y / 2);
-    }
+    ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, hts, vts);
+    ret |= write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, offset_x, offset_y);
 
     if (ret == 0) {
         ret = write_reg_bits(cam_sensor->sccb_address, ISP_CONTROL_01, 0x20, cam_sensor->status.scale);
@@ -420,29 +411,25 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
     }
 
     if (cam_sensor->pixformat == ESP_CAM_IO_PARL_PIXFORMAT_JPEG) {
+        // Note: Keep VCO frequency under 800MHz for maximum stability
+        // Expects 24MHz XCLK
 #if CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_DIS
-        ret = set_pll(cam_sensor, false, 200, 4, 2, false, 2, true, 4);
+        // Binning disabled: PCLK ~21MHz, SYSCLK ~84MHz, Theoretical ~15.01fps @ 5MP
+        // Binning enabled: PCLK ~18MHz, SYSCLK ~72MHz
+        ret = set_pll(cam_sensor, false, cam_sensor->status.binning ? 48 : 56, 1, 2, false, 2, true, 4);
 #else
-        bool is_portrait_hd = (ratio == ESP_CAM_IO_PARL_ASPECT_RATIO_9X16 && framesize >= ESP_CAM_IO_PARL_FRAMESIZE_P_HD);
-        uint8_t multiplier = is_portrait_hd ? 120 : 138;
-        uint8_t pclk_root_div = is_portrait_hd ? 3 : 2;
-        int gaincelling_level = cam_sensor->status.gainceiling;
-        if (framesize > ESP_CAM_IO_PARL_FRAMESIZE_SXGAM) {
-            ret = set_pll(cam_sensor, false, multiplier, 2, 2, false, pclk_root_div, true, 4);
-            gaincelling_level = MIN(gaincelling_level, 124);
-        }
-        else {
+        // HPM hits the maximum safe VCO limit! (800MHz for multiplier 50, 832MHz for multiplier 52)
+        // Multiplier 50: PCLK ~25MHz, SYSCLK ~100MHz, Theoretical ~17.87fps @ 5MP
+        // Multiplier 52: PCLK ~26MHz, SYSCLK ~104MHz, Theoretical ~18.58fps @ 5MP
 #if CONFIG_ESP_CAM_IO_PARL_OV5640_HIGH_RES
-            ret = set_pll(cam_sensor, false, 200, 4, 2, false, 2, true, 4);
+        // For HIGH_RES only configuration, resolutions below 1280x960 will keep their default PLL settings
+        int pre_div = cam_sensor->status.binning ? 2 : 5;
+        int multiplier = cam_sensor->status.binning ? 48 : 52;
 #else
-            ret = set_pll(cam_sensor, false, 125, 2, 2, false, 2, true, 4);
+        int pre_div = 5; // x1.5
+        int multiplier = 52;
 #endif
-            gaincelling_level = MAX(gaincelling_level, 248);
-        }
-        ret = write_reg(cam_sensor->sccb_address, 0x3A18, (gaincelling_level >> 8) & 3) || write_reg(cam_sensor->sccb_address, 0x3A19, gaincelling_level & 0xFF);
-        if (ret == 0) {
-            cam_sensor->status.gainceiling = gaincelling_level;
-        }
+        ret = set_pll(cam_sensor, false, multiplier, 1, pre_div, false, 2, true, 4);
 #endif
     } else {
         if (framesize > ESP_CAM_IO_PARL_FRAMESIZE_HVGA) {
@@ -991,8 +978,8 @@ static int set_res_raw(esp_cam_sensor_io_parl_handle_t cam_sensor, int startX, i
     int ret = 0;
     // Disable DVP PCLK
     ret =
-        write_reg(cam_sensor->sccb_address, 0x4407, 0x3f) ||
-        write_reg(cam_sensor->sccb_address, 0x3007, 0xfb) ||
+        //write_reg(cam_sensor->sccb_address, 0x4407, 0x3f) ||
+        //write_reg(cam_sensor->sccb_address, 0x3007, 0xfb) ||
         write_addr_reg(cam_sensor->sccb_address, X_ADDR_ST_H, startX, startY) ||
         write_addr_reg(cam_sensor->sccb_address, X_ADDR_END_H, endX, endY) ||
         write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, offsetX, offsetY) ||
@@ -1017,6 +1004,16 @@ static int set_xclk(esp_cam_sensor_io_parl_handle_t cam_sensor, int timer, int x
     int ret = 0;
     cam_sensor->xclk_freq_hz = xclk * 1000000U;
     ret = xclk_timer_conf(timer, cam_sensor->xclk_freq_hz);
+    return ret;
+}
+
+static int set_auto_band_mode(esp_cam_sensor_io_parl_handle_t cam_sensor, int enable) {
+    int ret = 0;
+    ret = write_reg_bits(cam_sensor->sccb_address, 0x3a00, 0x20, !enable) ||
+          write_reg_bits(cam_sensor->sccb_address, 0x3c01, 0x80, !enable);
+    if (ret == 0) {
+        ESP_LOGD(TAG, "Set auto band mode to: %d", enable);
+    }
     return ret;
 }
 
@@ -1111,12 +1108,13 @@ static int init_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     cam_sensor->status.aec_value = get_aec_value(cam_sensor);
     cam_sensor->status.aec2 = check_reg_mask(cam_sensor->sccb_address, 0x3a00, 0x04);
 
+    cam_sensor->set_gainceiling(cam_sensor, 124);
+
     // Reduce noise and sharpness at initialization
-    cam_sensor->set_sharpness(cam_sensor, -3);
+    cam_sensor->set_sharpness(cam_sensor, -2);
     cam_sensor->set_denoise(cam_sensor, 8);
-    
-    // Assuming the default value
-    cam_sensor->set_gainceiling(cam_sensor, 248);
+
+    set_auto_band_mode(cam_sensor, 1); // Enable auto band mode
 
 #if CONFIG_ESP_CAM_IO_PARL_OV5640_AF
     ESP_LOGI(TAG, "Initializing autofocus mode");

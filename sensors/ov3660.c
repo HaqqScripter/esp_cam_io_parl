@@ -120,8 +120,7 @@ static int write_addr_reg(uint8_t sccb_address, const uint16_t reg, uint16_t x_v
 #define write_reg_bits(sccb_address, reg, mask, enable) set_reg_bits(sccb_address, reg, 0, mask, enable ? mask : 0)
 
 static int calc_sysclk(int xclk, bool pll_bypass, int pll_multiplier, int pll_sys_div, int pll_pre_div, bool pll_root_2x, int pll_seld5, bool pclk_manual, int pclk_div) {
-    const int pll_pre_div2x_map[] = {
-        2, 3, 4, 6}; // values are multiplied by two to avoid floats
+    const int pll_pre_div2x_map[] = {2, 3, 4, 6}; // values are multiplied by two to avoid floats
     const int pll_seld52x_map[] = {2, 2, 4, 5};
 
     if (!pll_sys_div) {
@@ -133,8 +132,7 @@ static int calc_sysclk(int xclk, bool pll_bypass, int pll_multiplier, int pll_sy
     int pll_seld52x = pll_seld52x_map[pll_seld5];
 
     int VCO = (xclk / 1000) * pll_multiplier * pll_root_div * 2 / pll_pre_div2x;
-    int PLLCLK =
-        pll_bypass ? (xclk) : (VCO * 1000 * 2 / pll_sys_div / pll_seld52x);
+    int PLLCLK = pll_bypass ? (xclk) : (VCO * 1000 * 2 / pll_sys_div / pll_seld52x);
     int PCLK = PLLCLK / 2 / ((pclk_manual && pclk_div) ? pclk_div : 1);
     int SYSCLK = PLLCLK / 4;
 
@@ -365,32 +363,28 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
     }
 
     if (cam_sensor->pixformat == ESP_CAM_IO_PARL_PIXFORMAT_JPEG) {
-        if (framesize == ESP_CAM_IO_PARL_FRAMESIZE_QXGA) {
+        // Expects 24MHz XCLK
 #if CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_DIS
-            // 40MHz SYSCLK and 10MHz PCLK
-            ret = set_pll(cam_sensor, false, 24, 1, 3, false, 0, true, 8);
+        // 3MP @ QXGA: PCLK ~10MHz, SYSCLK ~40MHz
+        // Others: PCLK ~10MHz, SYSCLK ~50MHz
+        int multiplier = framesize == ESP_CAM_IO_PARL_FRAMESIZE_QXGA ? 24 : 30;
+        int pclk_div = framesize == ESP_CAM_IO_PARL_FRAMESIZE_QXGA ? 8 : 10;
+        ret = set_pll(cam_sensor, false, multiplier, 1, 3, false, 0, true, pclk_div);
 #else
-            // 66.7MHz SYSCLK and 16.7MHz PCLK
-            ret = set_pll(cam_sensor, false, 20, 1, 1, false, 0, true, 8);
-#endif
-        } else {
-#if CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_ANY_RES
-            // 66.7MHz SYSCLK and 16.7MHz PCLK
-            ret = set_pll(cam_sensor, false, 20, 1, 1, false, 0, true, 8);
-#elif CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_HIGH_RES
-            if (framesize > ESP_CAM_IO_PARL_FRAMESIZE_XGA) {
-                // 66.7MHz SYSCLK and 16.7MHz PCLK
-                ret = set_pll(cam_sensor, false, 20, 1, 1, false, 0, true, 8);
-            }
-            else {
-                // 50MHz SYSCLK and 10MHz PCLK
-                ret = set_pll(cam_sensor, false, 30, 1, 3, false, 0, true, 10);
-            }
+#if CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_HIGH_RES
+        // Binning disabled: PCLK ~16.7MHz, SYSCLK ~66.7MHz
+        // Binning enabled: PCLK ~10MHz, SYSCLK ~50MHz
+        int multiplier = !cam_sensor->status.binning ? 20 : 30;
+        int pclk_div = !cam_sensor->status.binning ? 8 : 10;
+        int pre_div = !cam_sensor->status.binning ? 1 : 3;
 #else
-            // 50MHz SYSCLK and 10MHz PCLK
-            ret = set_pll(cam_sensor, false, 30, 1, 3, false, 0, true, 10);
+        // PCLK ~16.7MHz, SYSCLK ~66.7MHz
+        int multiplier = 20
+        int pclk_div = 8;
+        int pre_div = 1;
 #endif
-        }
+        ret = set_pll(cam_sensor, false, multiplier, 1, pre_div, false, 0, true, pclk_div);
+#endif
     } else {
         // tuned for 16MHz XCLK and 8MHz PCLK
         if (framesize > ESP_CAM_IO_PARL_FRAMESIZE_HVGA) {
@@ -993,11 +987,8 @@ static int init_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     cam_sensor->status.aec2 = check_reg_mask(cam_sensor->sccb_address, 0x3a00, 0x04);
 
     // Reduce noise and sharpness at initialization
-    cam_sensor->set_sharpness(cam_sensor, -3);
+    cam_sensor->set_sharpness(cam_sensor, -2);
     cam_sensor->set_denoise(cam_sensor, 8);
-    
-    // Assuming the default value
-    cam_sensor->set_gainceiling(cam_sensor, 248);
 
     return 0;
 }
