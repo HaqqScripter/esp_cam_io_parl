@@ -1,5 +1,5 @@
-| Supported Targets | ESP32-C5 | ESP32-C6 | ESP32-H2 | ESP32-H4 | ESP32-P4 |
-| ----------------- | -------- | -------- | -------- | -------- | -------- |
+| Supported Targets | ESP32-C5 | ESP32-C6 | ESP32-H2 | ESP32-H21 | ESP32-H4 | ESP32-P4 | ESP32-S31 |
+| ----------------- | -------- | -------- | -------- | --------- | -------- | -------- | --------- |
 
 
 # DVP Camera capture example
@@ -14,8 +14,8 @@ The subsections below give only absolutely necessary information. For full steps
 
 ### Hardware Required
 
-- ESP32-C5/H2/H4 with OV3660, OV5640 camera sensor
-- ESP32-C6/ESP32-P4 with OV2640, NT99141, OV3660 or OV5640
+- ESP32-C5/H2/H21/H4 with OV3660, OV5640 camera sensor
+- ESP32-C6/P4/S31 with OV2640, NT99141, OV3660 or OV5640
 
 You can also connect camera sensors from other vendors to the ESP chip, you can find corresponding camera or from [ESP Component Registry](https://components.espressif.com), or design your own customized drivers.
 
