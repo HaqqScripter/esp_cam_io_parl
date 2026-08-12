@@ -224,6 +224,7 @@ void app_main(void) {
         .fill_mode = ESP_CAM_IO_PARL_QUEUE_LATEST,
         .frame_heap_caps = FRAME_BUFFER_CAPS,
         .pclk_io = CAM_PCLK_PIN,
+        .pclk_sample_edge = ESP_CAM_IO_PARL_PCLK_POS, // esp_cam_sensor_io_parl configures the camera sensor to sample the data on positive edge
         .de_io = CAM_HREF_PIN,
         .hsync_io = CAM_HSYNC_PIN,
         .vsync_io = CAM_VSYNC_PIN, // Not implemented
