@@ -32,11 +32,11 @@ The following table shows the circumstances for each target. OV5640 and OV3660 c
 | Target    | Max data width               | Max PCLK frequency (ideal conditions) | Sample method format  |
 | --------- | ---------------------------- | ------------------------------------- | ----------------------|
 | ESP32-C6  | 16 (8 with valid signals)    | 80MHz (40MHz safe)                    | Software delimiter used for 16 data lines, suitable for JPEG bytestreams, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
-| ESP32-H2  | 8 (No valid signals)         | 48MHz (24MHz safe)                    | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
+| ESP32-H2  | 8 (No valid signals)         | 48MHz (40MHz safe)                    | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
 | ESP32-P4  | 16 (8 with valid signals)    | 80MHz (40MHz safe)                    | Software delimiter used for 16 data lines, suitable for JPEG bytestreams, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
 | ESP32-C5  | 8 (No valid signals)         | 80MHz (40MHz safe)                    | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
-| ESP32-H4  | 8 (No valid signals)         | 48MHz (24MHz safe)                    | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
-| ESP32-H21 | 8 (No valid signals)         | 48MHz (24MHz safe)                    | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
+| ESP32-H4  | 8 (No valid signals)         | 48MHz (40MHz safe)                    | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
+| ESP32-H21 | 8 (No valid signals)         | 48MHz (40MHz safe)                    | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
 | ESP32-S31 | 16 (8 with valid signals)    | 80MHz (40MHz safe)                    | Software delimiter used for 16 data lines, suitable for JPEG bytestreams, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
 
 ## Important to Remember
