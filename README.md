@@ -11,8 +11,10 @@ This repository provides **ESP Parallel IO Camera** component (`esp_cam_io_parl`
 - ESP32-C5
 - ESP32-C6
 - ESP32-H2
+- ESP32-H21
 - ESP32-H4
 - ESP32-P4
+- ESP32-S31
 
 ### Supported Sensors
 
@@ -29,11 +31,13 @@ The following table shows the circumstances for each target. OV5640 and OV3660 c
 
 | Target    | Max data width               | Max PCLK frequency (ideal conditions) | Sample method format  |
 | --------- | ---------------------------- | ------------------------------------- | ----------------------|
-| ESP32-C6  | 16 (8 with valid signals)    | 80MHz                                 | Software delimiter used for 16 data lines, suitable for JPEG bytestreams, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
-| ESP32-H2  | 8 (No valid signals)         | 48MHz                                 | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
-| ESP32-P4  | 16 (8 with valid signals)    | 80MHz                                 | Software delimiter used for 16 data lines, suitable for JPEG bytestreams, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
-| ESP32-C5  | 8 (No valid signals)         | 80MHz                                 | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
-| ESP32-H4  | 8 (No valid signals)         | 48MHz                                 | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
+| ESP32-C6  | 16 (8 with valid signals)    | 80MHz (40MHz safe)                    | Software delimiter used for 16 data lines, suitable for JPEG bytestreams, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
+| ESP32-H2  | 8 (No valid signals)         | 48MHz (24MHz safe)                    | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
+| ESP32-P4  | 16 (8 with valid signals)    | 80MHz (40MHz safe)                    | Software delimiter used for 16 data lines, suitable for JPEG bytestreams, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
+| ESP32-C5  | 8 (No valid signals)         | 80MHz (40MHz safe)                    | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
+| ESP32-H4  | 8 (No valid signals)         | 48MHz (24MHz safe)                    | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
+| ESP32-H21 | 8 (No valid signals)         | 48MHz (24MHz safe)                    | Software delimiter used for 8 data lines, primarily for JPEG bytestreams. This target does not accept valid signals with 8 data lines. |
+| ESP32-S31 | 16 (8 with valid signals)    | 80MHz (40MHz safe)                    | Software delimiter used for 16 data lines, suitable for JPEG bytestreams, HREF (level delimiter) or HSYNC (pulse delimiter) signals for 8 data lines. |
 
 ## Important to Remember
 
@@ -638,18 +642,18 @@ At the moment, only the OV5640 and OV3660 camera sensor was measured. To accquir
 ### OV5640 (5MP)
 | Resolution                                         | Aspect ratio  | Max frame rate  |
 | -------------------------------------------------- | ------------- | --------------- |
-| 2592x1944<br>2560x1920<br>2048x1536<br>1600x1200   | 4:3           | ~10FPS          |
-| 1080x1920<br>864x1536<br>720x1280                  | 9:16          | ~15FPS          |
-| 2560x1600<br>1920x1200                             | 16:10         | ~12FPS          |
-| 2560x1440<br>1920x1080                             | 16:9          | ~13FPS          |
-| 1280x1024                                          | 5:4           | ~10FPS          |
-| 1280x960                                           | 4:3           | ~22FPS          |
+| 2592x1944<br>2560x1920<br>2048x1536<br>1600x1200   | 4:3           | ~12FPS          |
+| 1080x1920<br>864x1536<br>720x1280                  | 9:16          | ~18FPS          |
+| 2560x1600<br>1920x1200                             | 16:10         | ~14FPS          |
+| 2560x1440<br>1920x1080                             | 16:9          | ~16FPS          |
+| 1280x1024                                          | 5:4           | ~12FPS          |
+| 1280x960                                           | 4:3           | ~23FPS          |
 | 1280x720                                           | 16:9          | ~30FPS          |
 | 1024x768 (and below with the same aspect ratio)    | 4:3           | ~29FPS          |
-| 854x480<br>640x360                                 | 16:9          | ~38FPS          |
-| 480x320                                            | 3:2           | ~32FPS          |
+| 854x480<br>640x360                                 | 16:9          | ~40FPS          |
+| 480x320                                            | 3:2           | ~33FPS          |
 | 320x320  (and below with the same aspect ratio)    | 1:1           | ~29FPS          |
-| 176x144                                            | 5:4           | ~28FPS          |
+| 176x144                                            | 5:4           | ~29FPS          |
 
 ### OV3660 (3MP)
 | Resolution                                         | Aspect ratio  | Max frame rate  |

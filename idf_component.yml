@@ -11,6 +11,8 @@ targets:
   - esp32p4
   - esp32c5
   - esp32h4
+  - esp32h21
+  - esp32s31
 tags:
   - esp32
   - camera

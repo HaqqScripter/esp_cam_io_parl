@@ -4,12 +4,17 @@
 
 ### Bug Fixes
 - Fixed warning message appearing if HPM is disabled on OV5640 when building the user application.
+- Fixed vflip setting on OV5640 causes the image to not capture at certain resolutions.
 - Fixed errors for NVS functions when saving/loading/deleting the camera configurations due to extremely long NVS key name.
+- Fixed PCLK sample edge enum for esp-idf versions older than v6.1-beta1, v6.0-rc1, v5.2.7, v5.4.4, v6.0, v5.5.3 and v5.3.5.
 
 ### Features
+- Improved JPEG parsing stability to further reduce JPEG corruptions.
+- Improved OV5640 PLL settings to keep VCO frequency below 800MHz to ensure stability. Now maximum fps for a full 5MP image is roughly 12fps (previously 10fps). HPM hits this VCO frequency limit safely (832MHz VCO), while maintaining a near 15fps image.
 - Improved HPM stability for OV3660 camera sensor.
 - Now minimum payload buffer size is 4096 to help reduce jitter at lower resolutions.
 - `sccb` and `xclk` file name has been prefixed with `esp_cam_io_parl`.
+- Added ESP32-H21 and ESP32-S31 targets.
 
 ## v0.1.0-beta.10
 
