@@ -90,21 +90,21 @@ menu "Parallel IO Camera configuration"
         config ESP_CAM_IO_PARL_FRAME_SIZE_MUL
             int "JPEG frame buffer multiplier"
             range 0 100
-            default 2
+            default 4
             help
                 Determines the multiplier of the frame buffer size, this can be used to achieve precise value if paired with the divider.
 
         config ESP_CAM_IO_PARL_FRAME_SIZE_DIV
             int "JPEG frame buffer divider"
             range 1 100
-            default 9
+            default 15
             help
                 Determines the divider of the frame buffer size, this can be used to achieve precise value if paired with the multiplier.
 
         config ESP_CAM_IO_PARL_FRAME_SIZE_PADDING
             int "JPEG frame buffer padding (bytes)"
             range 0 2519424
-            default 4096
+            default 3072
             help
                 After the resulting value by the multiplier/divider, the padding bytes can reduce the JPEG buffer overflow warning on lower JPEG resolutions.
                 If multiplier is set to 0, the resulting frame buffer size will be equal to the padding value.

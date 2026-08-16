@@ -628,9 +628,9 @@ CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_HIGH_RES n // Only enables high performance on
 CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_DIS y // Disable High Performance Mode on OV5640 by default
 
 CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_AUTO y // Automatically set frame buffer size on resolution change, for JPEG images, user can adjust the frame buffer size dynamically with the formula (width * height * multiplier / divider + padding)
-CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_MUL 2 // Represents the multiplier
-CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_DIV 9 // Represents the divider
-CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_PADDING 4096 // Represents the padding
+CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_MUL 4 // Represents the multiplier
+CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_DIV 15 // Represents the divider
+CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_PADDING 3072 // Represents the padding
 
 CONFIG_CAMERA_PAYLOAD_BUFFER_SIZE 0x8000 // Payload size: 32768
 CONFIG_ESP_CAM_IO_PARL_SCCB_I2C_PORT0 y // Use the I2C0 port by default
@@ -1077,3 +1077,8 @@ Frees a previously received frame buffer.
 
 * `ESP_ERR_INVALID_ARG` — Invalid buffer.
 * `ESP_OK` — Success.
+
+# External Links
+
+- [[ESP32 Forum](https://esp32.com/viewtopic.php?t=46464)] Disussion about esp_cam_io_parl ESP-IDF component and test experiments with an ESP32-C5 + OV5640 camera.
+- [[Reddit](https://www.reddit.com/r/esp32/s/HASG1NuwFB)] Showcases OV3660 camera with an ESP32-C5 development board to achieve ~30FPS 1080p and ~23FPS at QXGA MJPEG streams.
