@@ -1108,8 +1108,6 @@ static int init_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     cam_sensor->status.aec_value = get_aec_value(cam_sensor);
     cam_sensor->status.aec2 = check_reg_mask(cam_sensor->sccb_address, 0x3a00, 0x04);
 
-    cam_sensor->set_gainceiling(cam_sensor, 124);
-
     // Reduce noise and sharpness at initialization
     cam_sensor->set_sharpness(cam_sensor, -2);
     cam_sensor->set_denoise(cam_sensor, 8);

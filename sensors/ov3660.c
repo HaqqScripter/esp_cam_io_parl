@@ -959,6 +959,16 @@ static int set_xclk(esp_cam_sensor_io_parl_handle_t cam_sensor, int timer, int x
     return ret;
 }
 
+static int set_auto_band_mode(esp_cam_sensor_io_parl_handle_t cam_sensor, int enable) {
+    int ret = 0;
+    ret = write_reg_bits(cam_sensor->sccb_address, 0x3a00, 0x20, !enable) ||
+          write_reg_bits(cam_sensor->sccb_address, 0x3c01, 0x80, !enable);
+    if (ret == 0) {
+        ESP_LOGD(TAG, "Set auto band mode to: %d", enable);
+    }
+    return ret;
+}
+
 static int init_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     cam_sensor->status.brightness = 0;
     cam_sensor->status.contrast = 0;
@@ -989,6 +999,8 @@ static int init_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     // Reduce noise and sharpness at initialization
     cam_sensor->set_sharpness(cam_sensor, -2);
     cam_sensor->set_denoise(cam_sensor, 8);
+    
+    set_auto_band_mode(cam_sensor, 1); // Enable auto band mode
 
     return 0;
 }
