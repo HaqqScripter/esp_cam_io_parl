@@ -1,7 +1,6 @@
 dependencies:
   haqqscripter/esp_cam_io_parl:
     version: '*'
-    pre_release: true
   espressif/esp_wifi_remote:
     version: ">=0.10,<2.0"
     rules:
