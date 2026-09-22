@@ -8,6 +8,7 @@
  *
  */
 #include "ov2640.h"
+#include "esp_cam_sensor_io_parl.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "ov2640_regs.h"
@@ -195,6 +196,9 @@ static int set_window(esp_cam_sensor_io_parl_handle_t cam_sensor, ov2640_sensor_
     WRITE_REG_OR_RETURN(BANK_SENSOR, CLKRC, c.clk);
     WRITE_REG_OR_RETURN(BANK_DSP, R_DVP_SP, c.pclk);
     WRITE_REG_OR_RETURN(BANK_DSP, R_BYPASS, R_BYPASS_DSP_EN);
+    
+    cam_sensor->status.width = w;
+    cam_sensor->status.height = h;
 
     vTaskDelay(10 / portTICK_PERIOD_MS);
     // required when changing resolution
@@ -205,8 +209,9 @@ static int set_window(esp_cam_sensor_io_parl_handle_t cam_sensor, ov2640_sensor_
 
 static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sensor_io_parl_framesize_t framesize) {
     int ret = 0;
-    uint16_t w = esp_cam_sensor_io_parl_resolution[framesize].width;
-    uint16_t h = esp_cam_sensor_io_parl_resolution[framesize].height;
+
+    uint16_t w = esp_cam_sensor_io_parl_resolution[framesize].width, h = esp_cam_sensor_io_parl_resolution[framesize].height;
+
     esp_cam_sensor_io_parl_aspect_ratio_t ratio = esp_cam_sensor_io_parl_resolution[framesize].aspect_ratio;
     uint16_t max_x = ratio_table[ratio].max_x;
     uint16_t max_y = ratio_table[ratio].max_y;
@@ -234,6 +239,7 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
     }
 
     ret = set_window(cam_sensor, mode, offset_x, offset_y, max_x, max_y, w, h);
+
     return ret;
 }
 
@@ -459,8 +465,7 @@ static int set_reg(esp_cam_sensor_io_parl_handle_t cam_sensor, int reg, int mask
 }
 
 static int set_res_raw(esp_cam_sensor_io_parl_handle_t cam_sensor, int startX, int startY, int endX, int endY, int offsetX, int offsetY, int totalX, int totalY, int outputX, int outputY, bool scale, bool binning) {
-    return set_window(cam_sensor, (ov2640_sensor_mode_t)startX, offsetX, offsetY,
-                      totalX, totalY, outputX, outputY);
+    return set_window(cam_sensor, (ov2640_sensor_mode_t)startX, offsetX, offsetY, totalX, totalY, outputX, outputY);
 }
 
 static int _set_pll(esp_cam_sensor_io_parl_handle_t cam_sensor, int bypass, int multiplier, int sys_div, int root_2x, int pre_div, int seld5, int pclk_manual, int pclk_div) {
@@ -574,6 +579,14 @@ int ov2640_init(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     cam_sensor->set_res_raw = set_res_raw;
     cam_sensor->set_pll = _set_pll;
     cam_sensor->set_xclk = set_xclk;
-    ESP_LOGD(TAG, "OV2640 Attached");
+
+    // No autofocus support
+    cam_sensor->af_is_supported = NULL;
+    cam_sensor->af_init = NULL;
+    cam_sensor->af_set_mode = NULL;
+    cam_sensor->af_trigger = NULL;
+    cam_sensor->af_get_status = NULL;
+    cam_sensor->af_set_manual_position = NULL;
+
     return 0;
 }

@@ -241,6 +241,10 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
 
 	cam_sensor->status.framesize = framesize;
 	ret = write_regs(cam_sensor->sccb_address, sensor_default_regs);
+    
+    uint16_t w = esp_cam_sensor_io_parl_resolution[framesize].width, h = esp_cam_sensor_io_parl_resolution[framesize].height;
+    cam_sensor->status.width = w;
+    cam_sensor->status.height = h;
 
 	if (framesize == ESP_CAM_IO_PARL_FRAMESIZE_QVGA) {
 		ESP_LOGD(TAG, "Set ESP_CAM_IO_PARL_FRAMESIZE_QVGA");
@@ -870,6 +874,8 @@ static int set_res_raw(esp_cam_sensor_io_parl_handle_t cam_sensor, int startX, i
 		write_addr_reg(cam_sensor->sccb_address, X_OUTPUT_SIZE_H, outputX, outputY);
 
 	if (!ret) {
+        cam_sensor->status.width = outputX;
+        cam_sensor->status.height = outputY;
 		cam_sensor->status.scale = scale;
 		cam_sensor->status.binning = binning;
 		ret = set_image_options(cam_sensor);
@@ -986,5 +992,14 @@ int nt99141_init(esp_cam_sensor_io_parl_handle_t cam_sensor) {
 	cam_sensor->set_res_raw = set_res_raw;
 	cam_sensor->set_pll = _set_pll;
 	cam_sensor->set_xclk = set_xclk;
+
+    // No autofocus support
+    cam_sensor->af_is_supported = NULL;
+    cam_sensor->af_init = NULL;
+    cam_sensor->af_set_mode = NULL;
+    cam_sensor->af_trigger = NULL;
+    cam_sensor->af_get_status = NULL;
+    cam_sensor->af_set_manual_position = NULL;
+
 	return 0;
 }

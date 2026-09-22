@@ -8,6 +8,7 @@
  *
  */
 #include "ov5640.h"
+#include "esp_cam_sensor_io_parl.h"
 #include "esp_rom_sys.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/projdefs.h"
@@ -17,6 +18,10 @@
 #include "esp_cam_io_parl_sccb.h"
 #include "esp_cam_io_parl_xclk.h"
 #include <stdint.h>
+
+#if defined(CONFIG_ESP_CAM_IO_PARL_OV5640_AF) && CONFIG_ESP_CAM_IO_PARL_OV5640_AF
+#include "esp_cam_io_parl_af.h"
+#endif
 
 #include "esp_log.h"
 static const char *TAG = "ov5640";
@@ -347,30 +352,22 @@ static int set_image_options(esp_cam_sensor_io_parl_handle_t cam_sensor, bool re
             write_reg(cam_sensor->sccb_address, Y_INCREMENT, 0x31); // odd:3, even: 1
     }
 
-    //if (ret == 0 && reset_state) {
-    //    write_reg(cam_sensor->sccb_address, 0x3003, 0x01); // Reset DVP
-    //    esp_rom_delay_us(6000); // 6ms delay
-    //    write_reg(cam_sensor->sccb_address, 0x3003, 0x00);
-    //    esp_rom_delay_us(3000); // 3ms delay
-    //    write_reg(cam_sensor->sccb_address, 0x4407, cam_sensor->status.quality & 0x3f);
-    //    write_reg(cam_sensor->sccb_address, 0x3007, 0xff); // Enable DVP PCLK
-    //}
-
     ESP_LOGD(TAG, "Set Image Options: Compression: %u, Binning: %u, V-Flip: %u, H-Mirror: %u, Reg-4514: 0x%02x", cam_sensor->pixformat == ESP_CAM_IO_PARL_PIXFORMAT_JPEG, cam_sensor->status.binning, cam_sensor->status.vflip, cam_sensor->status.hmirror, reg4514);
     return ret;
 }
 
 static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sensor_io_parl_framesize_t framesize) {
     int ret = 0;
-    esp_cam_sensor_io_parl_framesize_t old_framesize = cam_sensor->status.framesize;
-    cam_sensor->status.framesize = framesize;
 
     if (framesize > ESP_CAM_IO_PARL_FRAMESIZE_5MP) {
         ESP_LOGE(TAG, "Invalid framesize: %u", framesize);
         return -1;
     }
-    uint16_t w = esp_cam_sensor_io_parl_resolution[framesize].width;
-    uint16_t h = esp_cam_sensor_io_parl_resolution[framesize].height;
+
+    esp_cam_sensor_io_parl_framesize_t old_framesize = cam_sensor->status.framesize;
+    cam_sensor->status.framesize = framesize;
+
+    uint16_t w = esp_cam_sensor_io_parl_resolution[framesize].width, h = esp_cam_sensor_io_parl_resolution[framesize].height;
 
     esp_cam_sensor_io_parl_aspect_ratio_t ratio = esp_cam_sensor_io_parl_resolution[framesize].aspect_ratio;
     esp_cam_sensor_io_parl_ratio_settings_t settings = ratio_table[ratio];
@@ -384,16 +381,16 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
     uint16_t offset_x = cam_sensor->status.binning ? settings.offset_x / 2 : settings.offset_x;
     uint16_t offset_y = cam_sensor->status.binning ? settings.offset_y / 2 + 1 : settings.offset_y;
 
-    // Disable DVP PCLK
-    ret = //write_reg(cam_sensor->sccb_address, 0x4407, 0x3f) ||
-          //write_reg(cam_sensor->sccb_address, 0x3007, 0xfb) ||
-          write_addr_reg(cam_sensor->sccb_address, X_ADDR_ST_H, settings.start_x, settings.start_y) ||
+    ret = write_addr_reg(cam_sensor->sccb_address, X_ADDR_ST_H, settings.start_x, settings.start_y) ||
           write_addr_reg(cam_sensor->sccb_address, X_ADDR_END_H, settings.end_x, settings.end_y) ||
           write_addr_reg(cam_sensor->sccb_address, X_OUTPUT_SIZE_H, w, h);
 
     if (ret) {
         goto fail;
     }
+
+    cam_sensor->status.width = w;
+    cam_sensor->status.height = h;
 
     ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, hts, vts);
     ret |= write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, offset_x, offset_y);
@@ -975,11 +972,7 @@ static int set_reg(esp_cam_sensor_io_parl_handle_t cam_sensor, int reg, int mask
 }
 
 static int set_res_raw(esp_cam_sensor_io_parl_handle_t cam_sensor, int startX, int startY, int endX, int endY, int offsetX, int offsetY, int totalX, int totalY, int outputX, int outputY, bool scale, bool binning) {
-    int ret = 0;
-    // Disable DVP PCLK
-    ret =
-        //write_reg(cam_sensor->sccb_address, 0x4407, 0x3f) ||
-        //write_reg(cam_sensor->sccb_address, 0x3007, 0xfb) ||
+    int ret =
         write_addr_reg(cam_sensor->sccb_address, X_ADDR_ST_H, startX, startY) ||
         write_addr_reg(cam_sensor->sccb_address, X_ADDR_END_H, endX, endY) ||
         write_addr_reg(cam_sensor->sccb_address, X_OFFSET_H, offsetX, offsetY) ||
@@ -987,6 +980,8 @@ static int set_res_raw(esp_cam_sensor_io_parl_handle_t cam_sensor, int startX, i
         write_addr_reg(cam_sensor->sccb_address, X_OUTPUT_SIZE_H, outputX, outputY) ||
         write_reg_bits(cam_sensor->sccb_address, ISP_CONTROL_01, 0x20, scale);
     if (!ret) {
+        cam_sensor->status.width = outputX;
+        cam_sensor->status.height = outputY;
         cam_sensor->status.scale = scale;
         cam_sensor->status.binning = binning;
         ret = set_image_options(cam_sensor, true);
@@ -1006,78 +1001,6 @@ static int set_xclk(esp_cam_sensor_io_parl_handle_t cam_sensor, int timer, int x
     ret = xclk_timer_conf(timer, cam_sensor->xclk_freq_hz);
     return ret;
 }
-
-static int set_auto_band_mode(esp_cam_sensor_io_parl_handle_t cam_sensor, int enable) {
-    int ret = 0;
-    ret = write_reg_bits(cam_sensor->sccb_address, 0x3a00, 0x20, !enable) ||
-          write_reg_bits(cam_sensor->sccb_address, 0x3c01, 0x80, !enable);
-    if (ret == 0) {
-        ESP_LOGD(TAG, "Set auto band mode to: %d", enable);
-    }
-    return ret;
-}
-
-#if CONFIG_ESP_CAM_IO_PARL_OV5640_AF
-static int autofocus_init(esp_cam_sensor_io_parl_handle_t cam_sensor) {
-    uint16_t address = 0x8000;
-    uint8_t state = 0x8F;
-    int val = cam_sensor->set_reg(cam_sensor, 0x3000, 0xFF, 0x20);  //reset
-    if (val < 0) return -1;
-    for (uint16_t i = 0; i < sizeof(sensor_autofocus_config); i++) {
-        val = cam_sensor->set_reg(cam_sensor, address, 0xFF, sensor_autofocus_config[i]);
-        if (val < 0) return -1;
-        address++;
-    }
-    cam_sensor->set_reg(cam_sensor, CMD_MAIN, 0xFF, 0x00);
-    cam_sensor->set_reg(cam_sensor, CMD_ACK, 0xFF, 0x00);
-    cam_sensor->set_reg(cam_sensor, CMD_PARA0, 0xFF, 0x00);
-    cam_sensor->set_reg(cam_sensor, CMD_PARA1, 0xFF, 0x00);
-    cam_sensor->set_reg(cam_sensor, CMD_PARA2, 0xFF, 0x00);
-    cam_sensor->set_reg(cam_sensor, CMD_PARA3, 0xFF, 0x00);
-    cam_sensor->set_reg(cam_sensor, CMD_PARA4, 0xFF, 0x00);
-    cam_sensor->set_reg(cam_sensor, CMD_FW_STATUS, 0xFF, 0x7F);
-    cam_sensor->set_reg(cam_sensor, 0x3000, 0xFF, 0x00);
-    for (uint16_t i = 0; i < 2000; i++) {
-        state = cam_sensor->get_reg(cam_sensor, 0x3029, 0xFF);
-        if (state == FW_STATUS_S_IDLE) {
-            return 0;
-        }
-        esp_rom_delay_us(1500);
-    }
-    return 1;
-}
-static int autofocus_continuous_mode(esp_cam_sensor_io_parl_handle_t cam_sensor) {
-    uint8_t temp = 0;
-    uint16_t retry = 0;
-    cam_sensor->set_reg(cam_sensor, CMD_MAIN, 0xFF, 0x01);
-    cam_sensor->set_reg(cam_sensor, CMD_MAIN, 0xFF, 0x08);
-    do {
-        temp = cam_sensor->get_reg(cam_sensor, CMD_ACK, 0xFF);
-        retry++;
-        if (retry > 1000) {
-            return 2;
-        }
-        esp_rom_delay_us(1500);
-    } while (temp != 0x00);
-    cam_sensor->set_reg(cam_sensor, CMD_ACK, 0xFF, 0x01);
-    cam_sensor->set_reg(cam_sensor, CMD_MAIN, 0xFF, AF_CONTINUE_AUTO_FOCUS);
-    retry = 0;
-    do {
-        temp = cam_sensor->get_reg(cam_sensor, CMD_ACK, 0xFF);
-        retry++;
-        if (retry > 1000) {
-            return 2;
-        }
-        esp_rom_delay_us(1500);
-    } while (temp != 0x00);
-    return 0;
-}
-/*
-static int autofocus_get_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
-  int val = cam_sensor->get_reg(cam_sensor, CMD_FW_STATUS, 0xff);
-  return val;
-} */
-#endif
 
 static int init_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     cam_sensor->status.brightness = 0;
@@ -1111,22 +1034,23 @@ static int init_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     // Reduce noise and sharpness at initialization
     cam_sensor->set_sharpness(cam_sensor, -2);
     cam_sensor->set_denoise(cam_sensor, 8);
+	
+    cam_sensor->set_reg(cam_sensor, 0x5480, 0x01, 0x00); // Gamma Bias Plus Disabled
+	cam_sensor->set_reg(cam_sensor, 0x5589, 0xff, 0xff); // UV Threshold 1
+	cam_sensor->set_reg(cam_sensor, 0x558a, 0x1ff, 0x1ff); // UV Threshold 1
+	cam_sensor->set_gainceiling(cam_sensor, 124);
 
-    set_auto_band_mode(cam_sensor, 1); // Enable auto band mode
-
-#if CONFIG_ESP_CAM_IO_PARL_OV5640_AF
+#if defined(CONFIG_ESP_CAM_IO_PARL_OV5640_AF) && CONFIG_ESP_CAM_IO_PARL_OV5640_AF
     ESP_LOGI(TAG, "Initializing autofocus mode");
-    if (autofocus_init(cam_sensor) == 0) {
-        ESP_LOGI(TAG, "Autofocus initialized");
-    }
-    else {
+    
+    const esp_cam_io_parl_af_config_t config = {
+        .mode = ESP_CAM_IO_PARL_AF_MODE_AUTO,
+    };
+    if (esp_cam_io_parl_af_init(cam_sensor, &config) != ESP_OK) {
         ESP_LOGW(TAG, "Failed to initialize autofocus");
     }
-    if (autofocus_continuous_mode(cam_sensor) == 0) {
-        ESP_LOGI(TAG, "Successfully enabled continuous autofocus mode");
-    }
     else {
-        ESP_LOGW(TAG, "Failed to set autofocus continuous mode");
+        ESP_LOGI(TAG, "Successfully initialized autofocus");
     }
 #endif
 
@@ -1184,6 +1108,22 @@ int ov5640_init(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     cam_sensor->set_res_raw = set_res_raw;
     cam_sensor->set_pll = _set_pll;
     cam_sensor->set_xclk = set_xclk;
+
+#if defined(CONFIG_ESP_CAM_IO_PARL_AF_SUPPORT) && CONFIG_ESP_CAM_IO_PARL_AF_SUPPORT
+    cam_sensor->af_is_supported = ov5640_af_is_supported;
+    cam_sensor->af_init = ov5640_af_init;
+    cam_sensor->af_set_mode = ov5640_af_set_mode;
+    cam_sensor->af_trigger = ov5640_af_trigger;
+    cam_sensor->af_get_status = ov5640_af_get_status;
+    cam_sensor->af_set_manual_position = ov5640_af_set_manual_position;
+#else
+    cam_sensor->af_is_supported = NULL;
+    cam_sensor->af_init = NULL;
+    cam_sensor->af_set_mode = NULL;
+    cam_sensor->af_trigger = NULL;
+    cam_sensor->af_get_status = NULL;
+    cam_sensor->af_set_manual_position = NULL;
+#endif
 
 #if CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_ANY_RES
     ESP_LOGW(TAG, "High Performance Mode is enabled. Please ensure that the bandwidth is sufficient for transmitting the image data");

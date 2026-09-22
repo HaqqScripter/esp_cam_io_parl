@@ -324,10 +324,11 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
         ESP_LOGW(TAG, "Invalid framesize: %u", framesize);
         framesize = ESP_CAM_IO_PARL_FRAMESIZE_QXGA;
     }
+
     esp_cam_sensor_io_parl_framesize_t old_framesize = cam_sensor->status.framesize;
     cam_sensor->status.framesize = framesize;
-    uint16_t w = esp_cam_sensor_io_parl_resolution[framesize].width;
-    uint16_t h = esp_cam_sensor_io_parl_resolution[framesize].height;
+
+    uint16_t w = esp_cam_sensor_io_parl_resolution[framesize].width, h = esp_cam_sensor_io_parl_resolution[framesize].height;
     esp_cam_sensor_io_parl_aspect_ratio_t ratio = esp_cam_sensor_io_parl_resolution[cam_sensor->status.framesize].aspect_ratio;
     esp_cam_sensor_io_parl_ratio_settings_t settings = ratio_table[ratio];
 
@@ -341,6 +342,9 @@ static int set_framesize(esp_cam_sensor_io_parl_handle_t cam_sensor, esp_cam_sen
     if (ret) {
         goto fail;
     }
+    
+    cam_sensor->status.width = w;
+    cam_sensor->status.height = h;
 
     if (cam_sensor->status.binning) {
         ret = write_addr_reg(cam_sensor->sccb_address, X_TOTAL_SIZE_H, settings.total_x, (settings.total_y / 2) + 1) ||
@@ -940,6 +944,8 @@ static int set_res_raw(esp_cam_sensor_io_parl_handle_t cam_sensor, int startX, i
         write_addr_reg(cam_sensor->sccb_address, X_OUTPUT_SIZE_H, outputX, outputY) ||
         write_reg_bits(cam_sensor->sccb_address, ISP_CONTROL_01, 0x20, scale);
     if (!ret) {
+        cam_sensor->status.width = outputX;
+        cam_sensor->status.height = outputY;
         cam_sensor->status.scale = scale;
         cam_sensor->status.binning = binning;
         ret = set_image_options(cam_sensor);
@@ -956,16 +962,6 @@ static int set_xclk(esp_cam_sensor_io_parl_handle_t cam_sensor, int timer, int x
     int ret = 0;
     cam_sensor->xclk_freq_hz = xclk * 1000000U;
     ret = xclk_timer_conf(timer, cam_sensor->xclk_freq_hz);
-    return ret;
-}
-
-static int set_auto_band_mode(esp_cam_sensor_io_parl_handle_t cam_sensor, int enable) {
-    int ret = 0;
-    ret = write_reg_bits(cam_sensor->sccb_address, 0x3a00, 0x20, !enable) ||
-          write_reg_bits(cam_sensor->sccb_address, 0x3c01, 0x80, !enable);
-    if (ret == 0) {
-        ESP_LOGD(TAG, "Set auto band mode to: %d", enable);
-    }
     return ret;
 }
 
@@ -999,8 +995,6 @@ static int init_status(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     // Reduce noise and sharpness at initialization
     cam_sensor->set_sharpness(cam_sensor, -2);
     cam_sensor->set_denoise(cam_sensor, 8);
-    
-    set_auto_band_mode(cam_sensor, 1); // Enable auto band mode
 
     return 0;
 }
@@ -1056,6 +1050,14 @@ int ov3660_init(esp_cam_sensor_io_parl_handle_t cam_sensor) {
     cam_sensor->set_res_raw = set_res_raw;
     cam_sensor->set_pll = _set_pll;
     cam_sensor->set_xclk = set_xclk;
+
+    // No autofocus support
+    cam_sensor->af_is_supported = NULL;
+    cam_sensor->af_init = NULL;
+    cam_sensor->af_set_mode = NULL;
+    cam_sensor->af_trigger = NULL;
+    cam_sensor->af_get_status = NULL;
+    cam_sensor->af_set_manual_position = NULL;
 
 #if CONFIG_ESP_CAM_IO_PARL_OV3660_HPM_ANY_RES
     ESP_LOGW(TAG, "High Performance Mode is enabled. Please ensure that the bandwidth is sufficient for transmitting the image data");
