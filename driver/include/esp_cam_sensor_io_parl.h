@@ -8,6 +8,10 @@
 #include "hal/ledc_types.h"
 #include "esp_cam_io_parl.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
     ESP_CAM_IO_PARL_OV2640_PID = 0x26,
     ESP_CAM_IO_PARL_OV3660_PID = 0x3660,
@@ -25,10 +29,10 @@ typedef enum {
 } esp_cam_sensor_io_parl_model_t;
 
 typedef enum {
-    ESP_CAM_IO_PARL_OV2640_SCCB_ADDR   = 0x30,// 0x60 >> 1
-    ESP_CAM_IO_PARL_OV3660_SCCB_ADDR   = 0x3C,// 0x78 >> 1
-    ESP_CAM_IO_PARL_OV5640_SCCB_ADDR   = 0x3C,// 0x78 >> 1
-    ESP_CAM_IO_PARL_NT99141_SCCB_ADDR  = 0x2A,// 0x54 >> 1
+    ESP_CAM_IO_PARL_OV2640_SCCB_ADDR   = 0x30, // 0x60 >> 1
+    ESP_CAM_IO_PARL_OV3660_SCCB_ADDR   = 0x3C, // 0x78 >> 1
+    ESP_CAM_IO_PARL_OV5640_SCCB_ADDR   = 0x3C, // 0x78 >> 1
+    ESP_CAM_IO_PARL_NT99141_SCCB_ADDR  = 0x2A, // 0x54 >> 1
 } esp_cam_sensor_io_parl_sccb_addr_t;
 
 typedef enum {
@@ -75,7 +79,7 @@ typedef enum {
     ESP_CAM_IO_PARL_FRAMESIZE_P_FHD,    // 1080x1920
     ESP_CAM_IO_PARL_FRAMESIZE_QSXGA,    // 2560x1920
     ESP_CAM_IO_PARL_FRAMESIZE_5MP,      // 2592x1944
-    ESP_CAM_IO_PARL_FRAMESIZE_INVALID
+    ESP_CAM_IO_PARL_FRAMESIZE_INVALID,
 } esp_cam_sensor_io_parl_framesize_t;
 
 typedef struct {
@@ -96,7 +100,7 @@ typedef enum {
     ESP_CAM_IO_PARL_ASPECT_RATIO_21X9,
     ESP_CAM_IO_PARL_ASPECT_RATIO_5X4,
     ESP_CAM_IO_PARL_ASPECT_RATIO_1X1,
-    ESP_CAM_IO_PARL_ASPECT_RATIO_9X16
+    ESP_CAM_IO_PARL_ASPECT_RATIO_9X16,
 } esp_cam_sensor_io_parl_aspect_ratio_t;
 
 typedef enum {
@@ -142,6 +146,8 @@ typedef struct {
 
 typedef struct {
     esp_cam_sensor_io_parl_framesize_t framesize;
+    uint16_t width;
+    uint16_t height;
     bool scale;
     bool binning;
     uint8_t quality; //0 - 63
@@ -251,6 +257,14 @@ typedef struct esp_cam_sensor_io_parl_t {
     int  (*set_res_raw)         (esp_cam_sensor_io_parl_handle_t cam_sensor, int startX, int startY, int endX, int endY, int offsetX, int offsetY, int totalX, int totalY, int outputX, int outputY, bool scale, bool binning);
     int  (*set_pll)             (esp_cam_sensor_io_parl_handle_t cam_sensor, int bypass, int mul, int sys, int root, int pre, int seld5, int pclken, int pclk);
     int  (*set_xclk)            (esp_cam_sensor_io_parl_handle_t cam_sensor, int timer, int xclk);
+	
+	// Autofocus function pointers (sensor-specific implementations)
+    int  (*af_is_supported)     (esp_cam_sensor_io_parl_handle_t cam_sensor);
+    int  (*af_init)             (esp_cam_sensor_io_parl_handle_t cam_sensor, uint32_t timeout_ms);
+    int  (*af_set_mode)         (esp_cam_sensor_io_parl_handle_t cam_sensor, int mode);  // 0=auto, 1=manual
+    int  (*af_trigger)          (esp_cam_sensor_io_parl_handle_t cam_sensor);
+    int  (*af_get_status)       (esp_cam_sensor_io_parl_handle_t cam_sensor, uint8_t *out_raw, bool *out_focused, bool *out_busy);
+    int  (*af_set_manual_position) (esp_cam_sensor_io_parl_handle_t cam_sensor, uint16_t position);
 } esp_cam_sensor_io_parl_t;
 
 /**
@@ -343,4 +357,8 @@ esp_err_t esp_cam_sensor_io_parl_load_from_nvs(const char *key);
  * @param[in] key   A unique nvs key name for the camera settings
  */
 esp_err_t esp_cam_sensor_io_parl_erase_nvs(const char *key);
+
+#ifdef __cplusplus
+}
+#endif
 #endif

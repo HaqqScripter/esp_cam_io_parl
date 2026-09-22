@@ -1,7 +1,6 @@
 #ifndef _ESP_CAM_IO_PARL_H_
 #define _ESP_CAM_IO_PARL_H_
 
-#include "freertos/idf_additions.h"
 #pragma once
 
 #include "esp_err.h"
@@ -9,6 +8,7 @@
 #include "soc/gpio_num.h"
 #include "hal/parlio_types.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/queue.h"
 #include "driver/parlio_types.h"
 
@@ -27,6 +27,9 @@
     #define ESP_CAM_IO_PARL_EDGE_FIX 0
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum {
     ESP_CAM_IO_PARL_QUEUE_PENDING, // Frame buffers that are ready to be filled
@@ -234,6 +237,10 @@ esp_err_t esp_cam_io_parl_receive_from_isr(esp_cam_io_parl_handle_t esp_cam_io_p
  *      - ESP_OK                    Successfully freed frame buffer
  */
 esp_err_t esp_cam_io_parl_free_buffer(esp_cam_io_parl_trans_t *frame);
+
+#ifdef __cplusplus
+}
+#endif
 
 #include "esp_cam_sensor_io_parl.h"
 
