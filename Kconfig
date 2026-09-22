@@ -52,10 +52,12 @@ menu "Parallel IO Camera configuration"
 
     if ESP_CAM_IO_PARL_OV5640
         config ESP_CAM_IO_PARL_OV5640_AF
-            bool "Enable autofocus function"
+            bool "Enable autofocus on sensor initialization"
+            depends on ESP_CAM_IO_PARL_AF_SUPPORT
+            default y
             help
-                Enable this option if you want to use the autofocus feature on OV5640.
-                Disable this option to save memory and faster initialization time.
+                If this option is enabled, then there will be no need to use esp_cam_io_parl_af API functions to initialize the autofocus on OV5640.
+                But do note that this will only call the auto mode.
 
         choice ESP_CAM_IO_PARL_OV5640_HPM
             bool "High Performance Mode (24MHz XCLK recommended)"
@@ -74,6 +76,21 @@ menu "Parallel IO Camera configuration"
             config ESP_CAM_IO_PARL_OV5640_HPM_DIS
                 bool "Disabled"
         endchoice
+    endif
+
+    menuconfig ESP_CAM_IO_PARL_AF_SUPPORT
+        bool "Enable autofocus for supported camera sensors"
+        help
+            Enable autofocus support for camera sensors (currently only OV5640 has autofocus) via the esp_cam_io_parl_af API.
+            If disabled, the AF API will return ESP_ERR_NOT_SUPPORTED.
+
+    if ESP_CAM_IO_PARL_AF_SUPPORT
+        config ESP_CAM_IO_PARL_AF_DEFAULT_TIMEOUT_MS
+            int "Autofocus default timeout (ms)"
+            range 100 20000
+            default 2000
+            help
+                Default timeout used for autofocus operations (firmware load, trigger/wait).
     endif
 
     menuconfig ESP_CAM_IO_PARL_FRAME_SIZE_AUTO
@@ -108,6 +125,20 @@ menu "Parallel IO Camera configuration"
             help
                 After the resulting value by the multiplier/divider, the padding bytes can reduce the JPEG buffer overflow warning on lower JPEG resolutions.
                 If multiplier is set to 0, the resulting frame buffer size will be equal to the padding value.
+
+        config ESP_CAM_IO_PARL_FRAME_SIZE_ENABLE_LIMIT
+            bool "Enable JPEG frame buffer size limit"
+            help
+                If the user still requires adaptive frame buffer size within the buffer size limit, enable this option.
+                This will cap the frame buffer size if it exceeds the frame buffer size limit.
+
+        config ESP_CAM_IO_PARL_FRAME_SIZE_LIMIT
+            int "JPEG frame buffer limit (bytes)"
+            depends on ESP_CAM_IO_PARL_FRAME_SIZE_ENABLE_LIMIT
+            range 4096 2519424
+            default 2519424
+            help
+                If the calculated JPEG buffer size exceeds this value, then it will be capped.
     endif
 
     choice ESP_CAM_IO_PARL_SCCB_I2C_PORT
@@ -127,16 +158,16 @@ menu "Parallel IO Camera configuration"
     endchoice
 
     config ESP_CAM_IO_PARL_SCCB_CLK_FREQ
-    int "SCCB clock frequency"
-    default 100000
-    range 100000 400000
-    help
-        Increasing this value can reduce the initialization time of the sensor.
-        Please refer to the relevant instructions of the sensor to adjust the value.
+        int "SCCB clock frequency"
+        default 100000
+        range 100000 400000
+        help
+            Increasing this value can reduce the initialization time of the sensor.
+            Please refer to the relevant instructions of the sensor to adjust the value.
 
     config ESP_CAM_IO_PARL_PAYLOAD_SIZE
         int "DMA buffer size"
-        range 4096 65535
+        range 2048 65535
         default 32768
         help
             Maximum value of DMA payload buffer

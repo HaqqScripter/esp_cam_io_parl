@@ -626,17 +626,19 @@ CONFIG_ESP_CAM_IO_PARL_OV5640_HPM n // Enables high performance on OV5640 for in
 CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_ANY_RES n // Fully enables High Performance Mode on all resolutions, allowing 30FPS 1280x960 captures and 40FPS for 1280x720.
 CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_HIGH_RES n // Only enables high performance on OV5640 for resolutions above 1280x960.
 CONFIG_ESP_CAM_IO_PARL_OV5640_HPM_DIS y // Disable High Performance Mode on OV5640 by default
-
+CONFIG_ESP_CAM_IO_PARL_AF_SUPPORT n // Autofocus is disabled by default
+CONFIG_ESP_CAM_IO_PARL_AF_DEFAULT_TIMEOUT_MS 2000 // Default timeout for autofocus status
 CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_AUTO y // Automatically set frame buffer size on resolution change, for JPEG images, user can adjust the frame buffer size dynamically with the formula (width * height * multiplier / divider + padding)
 CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_MUL 4 // Represents the multiplier
 CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_DIV 15 // Represents the divider
 CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_PADDING 3072 // Represents the padding
-
-CONFIG_CAMERA_PAYLOAD_BUFFER_SIZE 0x8000 // Payload size: 32768
+CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_ENABLE_LIMIT n // JPEG size limit is disabled by default
+CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_LIMIT 2519424 // Default JPEG size limit
 CONFIG_ESP_CAM_IO_PARL_SCCB_I2C_PORT0 y // Use the I2C0 port by default
 CONFIG_ESP_CAM_IO_PARL_SCCB_I2C_PORT1 n // I2C1 only available on ESP32-P4 and ESP32-H2
 CONFIG_ESP_CAM_IO_PARL_SCCB_LP_I2C_PORT0 n // Only available on ESP32-C6, ESP32-P4 and ESP32-C5
 CONFIG_ESP_CAM_IO_PARL_SCCB_CLK_FREQ 100000 // Higher values allows for faster initialization for SCCB
+CONFIG_ESP_CAM_IO_PARL_PAYLOAD_SIZE 0x8000 // Payload size: 32768
 ```
 
 # Measured Frame Rates
@@ -1077,6 +1079,45 @@ Frees a previously received frame buffer.
 
 * `ESP_ERR_INVALID_ARG` — Invalid buffer.
 * `ESP_OK` — Success.
+
+# Autofocus API
+
+This component includes an optional autofocus helper for supported modules that have an AF-capable lens. Currently only OV5640 has its autofocus implemented.
+
+- Enable it in `menuconfig`: `Component config` → `Parallel IO Camera configuration` → `Enable autofocus for supported camera sensors`.
+
+This will automatically enable and initialize the autofocus on OV5640 camera sensor. The user won't have to use the esp_cam_io_parl_af functions. To use the esp_cam_io_parl_af functions for more flexibility:
+
+- Disable automatic autofocus initialization through `menuconfig`: `Component config` → `Parallel IO Camera configuration` → `Support OV5640 5MP` → `Enable autofocus on sensor initialization`.
+- Include the header: `#include "esp_cam_io_parl_af.h"`.
+
+### Using esp_cam_io_parl_af functions
+
+Basic API usage:
+
+```c
+#include "esp_cam_io_parl.h"
+#include "esp_cam_io_parl_af.h"
+
+// After esp_cam_new_sensor_io_parl(..., &esp_cam_sensor_handle)
+esp_cam_io_parl_af_config_t af_cfg = {
+    .mode = ESP_CAM_IO_PARL_AF_MODE_AUTO,
+    .timeout_ms = 2000,
+};
+
+ESP_ERROR_CHECK(esp_cam_io_parl_af_init(esp_cam_sensor_handle, &af_cfg));
+
+// Optional: trigger a single AF cycle and wait for completion
+ESP_ERROR_CHECK(esp_cam_io_parl_af_trigger(esp_cam_sensor_handle));
+
+esp_cam_io_parl_af_status_t st;
+ESP_ERROR_CHECK(esp_cam_io_parl_af_wait(esp_cam_sensor_handle, 0, &st));
+```
+
+Notes:
+
+- If autofocus is disabled (or the sensor is not OV5640), the AF APIs return `ESP_ERR_NOT_SUPPORTED`.
+- OV5640 autofocus relies on loading an internal firmware blob over SCCB during `esp_cam_io_parl_af_init()`.
 
 # External Links
 

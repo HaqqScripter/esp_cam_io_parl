@@ -13,13 +13,15 @@ set(include_dirs
 if(idf_version VERSION_GREATER_EQUAL "5.4" AND (IDF_TARGET STREQUAL "esp32c6" OR IDF_TARGET STREQUAL "esp32h2" OR IDF_TARGET STREQUAL "esp32p4" OR IDF_TARGET STREQUAL "esp32c5" OR IDF_TARGET STREQUAL "esp32h4" OR IDF_TARGET STREQUAL "esp32h21" OR IDF_TARGET STREQUAL "esp32s31"))
     set(srcs
         driver/esp_cam_sensor_io_parl.c
-        driver/esp_cam_io_parl.c
         driver/esp_cam_io_parl_sccb.c
         driver/esp_cam_io_parl_xclk.c
+        driver/esp_cam_io_parl_af.c
+        driver/esp_cam_io_parl.c
 
         sensors/ov2640.c
         sensors/ov3660.c
         sensors/ov5640.c
+        sensors/ov5640_af.c
         sensors/nt99141.c
     )
 

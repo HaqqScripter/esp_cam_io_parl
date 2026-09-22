@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.1
+
+### Bug Fixes
+- Removed auto band mode for both OV5640 and OV3660 sensors.
+
+### Features
+- Reimplemented OV5640 autofocus into esp_cam_io_parl_af API.
+- Added esp_cam_sensor_io_parl->status.width and esp_cam_sensor_io_parl->status.height properties.
+- Now esp_cam_sensor_io_parl_frame_info returns the custom width and height if esp_cam_sensor_io_parl->set_res_raw is used.
+- Implemented JPEG frame buffer size limit to allow higher resolution streaming on RAM constraint targets.
+- Slightly improved low-light performance especially for OV5640 sensor by disabling Gamma Bias Plus.
+- Slightly increased sharpness for both OV5640 & OV3660 on initialization.
+
 ## v0.1.0
 
 ### Features
