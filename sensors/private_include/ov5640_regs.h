@@ -199,27 +199,6 @@
 #define COMPRESSION_CTRL0d 0x440d //
 #define COMPRESSION_CTRL0E 0x440e //
 
-#if CONFIG_ESP_CAM_IO_PARL_OV5640_AF
-#define CMD_MAIN                   0x3022
-#define CMD_ACK                    0x3023
-#define CMD_PARA0                  0x3024
-#define CMD_PARA1                  0x3025
-#define CMD_PARA2                  0x3026
-#define CMD_PARA3                  0x3027
-#define CMD_PARA4                  0x3028
-#define CMD_FW_STATUS              0x3029
-
-#define AF_TRIG_SINGLE_AUTO_FOCUS           0x03
-#define AF_CONTINUE_AUTO_FOCUS              0x04
-
-#define FW_STATUS_S_FIRMWARE                0x7F
-#define FW_STATUS_S_STARTUP                 0x7E
-#define FW_STATUS_S_IDLE                    0x70
-#define FW_STATUS_S_FOCUSED                 0x10
-#define FW_STATUS_S_ZONE_CONFIG             0x16
-#define FW_STATUS_S_FOCUSING                0x00 //0x00 - 0X0F, 0x80 - 0X8F
-#endif
-
 /**
  * @brief register value
  */

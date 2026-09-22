@@ -24,4 +24,13 @@ int ov5640_detect(int sccb_address, esp_cam_sensor_io_parl_id_t *id);
  */
 int ov5640_init(esp_cam_sensor_io_parl_handle_t cam_sensor);
 
+// Autofocus function implementations (in ov5640_af.c)
+#if defined(CONFIG_ESP_CAM_IO_PARL_AF_SUPPORT) && CONFIG_ESP_CAM_IO_PARL_AF_SUPPORT
+int ov5640_af_is_supported(esp_cam_sensor_io_parl_handle_t cam_sensor);
+int ov5640_af_init(esp_cam_sensor_io_parl_handle_t cam_sensor, uint32_t timeout_ms);
+int ov5640_af_set_mode(esp_cam_sensor_io_parl_handle_t cam_sensor, int mode);
+int ov5640_af_trigger(esp_cam_sensor_io_parl_handle_t cam_sensor);
+int ov5640_af_get_status(esp_cam_sensor_io_parl_handle_t cam_sensor, uint8_t *out_raw, bool *out_focused, bool *out_busy);
+int ov5640_af_set_manual_position(esp_cam_sensor_io_parl_handle_t cam_sensor, uint16_t position);
+#endif
 #endif
