@@ -66,7 +66,7 @@ static bool IRAM_ATTR esp_cam_io_parl_received_partial_data(parlio_rx_unit_handl
             case ESP_CAM_IO_PARL_JPEG_ENTROPY: {
                 uint8_t *next_marker = memchr(chunk + offset, 0xFF, chunk_len - offset);
                 size_t bytes_to_copy = next_marker ? (next_marker - (chunk + offset)) : (chunk_len - offset);
-                // Bulk Copy to frame buffer
+
                 if (esp_cam_io_parl->info.index + bytes_to_copy < esp_cam_io_parl->info.frame.length) {
                     memcpy(esp_cam_io_parl->info.frame.buffer + esp_cam_io_parl->info.index, chunk + offset, bytes_to_copy);
                     esp_cam_io_parl->info.index += bytes_to_copy;
@@ -81,7 +81,6 @@ static bool IRAM_ATTR esp_cam_io_parl_received_partial_data(parlio_rx_unit_handl
                         esp_cam_io_parl->info.state = ESP_CAM_IO_PARL_JPEG_ENTROPY;
                     }
                     else if (m_type == 0xD8 && esp_cam_io_parl->info.state == ESP_CAM_IO_PARL_JPEG_ENTROPY) {
-                        // Deformed JPEG image, handle it
                         goto err;
                     }
                     else if (m_type == 0xD9 && esp_cam_io_parl->info.state == ESP_CAM_IO_PARL_JPEG_ENTROPY) {
@@ -89,7 +88,7 @@ static bool IRAM_ATTR esp_cam_io_parl_received_partial_data(parlio_rx_unit_handl
                         esp_cam_io_parl->info.frame.buffer[esp_cam_io_parl->info.index++] = 0xD9;
                         esp_cam_io_parl_trans_t frame = esp_cam_io_parl->info.frame;
                         frame.length = esp_cam_io_parl->info.index;
-                        // Release frame buffer to queue
+
                         BaseType_t hpw = pdFALSE;
                         if (!xQueueSendFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_READY], &frame, &hpw)) {
                             if (esp_cam_io_parl->config.fill_mode == ESP_CAM_IO_PARL_QUEUE_LATEST) {
@@ -133,7 +132,6 @@ jpeg_overflow:
 err:
     esp_cam_io_parl->info.state = ESP_CAM_IO_PARL_JPEG_IDLE;
     if (!xQueueSendFromISR(esp_cam_io_parl->queue_handle[ESP_CAM_IO_PARL_QUEUE_FAIL], &esp_cam_io_parl->info.frame, &_hp_task_woken)) {
-        // Do nothing at the moment
     }
     if (_hp_task_woken) {
         portYIELD_FROM_ISR();
@@ -302,14 +300,10 @@ esp_err_t esp_cam_del_io_parl(esp_cam_io_parl_handle_t esp_cam_io_parl) {
 
 esp_err_t esp_cam_io_parl_set_alloc_size(esp_cam_io_parl_handle_t esp_cam_io_parl, uint32_t alloc_size, uint32_t heap_caps) {
     ESP_RETURN_ON_FALSE(esp_cam_io_parl && alloc_size > MIN_FRAME_ALLOC_SIZE, ESP_ERR_INVALID_ARG, TAG, "Invalid arguments");
-    //esp_cam_io_parl->info.state = ESP_CAM_IO_PARL_JPEG_IDLE;
-    //ESP_RETURN_ON_ERROR(parlio_rx_soft_delimiter_start_stop(esp_cam_io_parl->rx_unit, esp_cam_io_parl->rx_delimiter, false), TAG, "Failed to start PARLIO RX soft delimiter");
-    //ESP_LOGI(TAG, "CPU cycles for parlio_rx_soft_delimiter_start_stop: %u", end);
     esp_cam_io_parl->alloc_size = alloc_size;
     if (heap_caps) {
         esp_cam_io_parl->alloc_heap_caps = heap_caps;
     }
-    //ESP_RETURN_ON_ERROR(parlio_rx_soft_delimiter_start_stop(esp_cam_io_parl->rx_unit, esp_cam_io_parl->rx_delimiter, true), TAG, "Failed to start PARLIO RX soft delimiter");
     return ESP_OK;
 }
 

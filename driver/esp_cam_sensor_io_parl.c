@@ -123,6 +123,9 @@ static int set_framesize_io_parl_interface(esp_cam_sensor_io_parl_handle_t cam_s
 
         esp_cam_sensor_io_parl_resolution_info_t resolution = esp_cam_sensor_io_parl_resolution[framesize];
         uint32_t alloc_size = cam_sensor->pixformat != ESP_CAM_IO_PARL_PIXFORMAT_JPEG ? resolution.width * resolution.height * cam_sensor->pixformat_bpp : (resolution.width * resolution.height * CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_MUL / CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_DIV + CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_PADDING);
+#if CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_ENABLE_LIMIT
+        alloc_size = MIN(alloc_size, CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_LIMIT);
+#endif
         esp_cam_io_parl_set_alloc_size(cam_sensor->dvp_interface, alloc_size, cam_sensor->dvp_interface->alloc_heap_caps);
 
         int ret = esp_cam_sensor_io_parl_controlled_interface->set_framesize(cam_sensor, framesize);
@@ -140,6 +143,9 @@ static int set_res_raw_io_parl_interface(esp_cam_sensor_io_parl_handle_t cam_sen
         if (cam_sensor->dvp_interface->use_soft_delimiter) parlio_rx_soft_delimiter_start_stop(cam_sensor->dvp_interface->rx_unit, cam_sensor->dvp_interface->rx_delimiter, false);
 
         uint32_t alloc_size = cam_sensor->pixformat != ESP_CAM_IO_PARL_PIXFORMAT_JPEG ? outputX * outputY * cam_sensor->pixformat_bpp : (outputX * outputY * CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_MUL / CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_DIV + CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_PADDING);
+#if CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_ENABLE_LIMIT
+        alloc_size = MIN(alloc_size, CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_LIMIT);
+#endif
         esp_cam_io_parl_set_alloc_size(cam_sensor->dvp_interface, alloc_size, cam_sensor->dvp_interface->alloc_heap_caps);
 
         int ret = esp_cam_sensor_io_parl_controlled_interface->set_res_raw(cam_sensor, startX, startY, endX, endY, offsetX, offsetY, totalX, totalY, outputX, outputY, scale, binning);
@@ -284,8 +290,6 @@ esp_err_t esp_cam_new_sensor_io_parl(const esp_cam_sensor_io_parl_config_t *conf
     esp_cam_sensor_io_parl_interface->status.framesize = frame_size;
     esp_cam_sensor_io_parl_interface->pixformat = pix_format;
 
-    esp_cam_sensor_io_parl_interface->init_status(esp_cam_sensor_io_parl_interface);
-
     ESP_LOGD(TAG, "Setting frame size to %dx%d", esp_cam_sensor_io_parl_resolution[frame_size].width, esp_cam_sensor_io_parl_resolution[frame_size].height);
     if (esp_cam_sensor_io_parl_interface->set_framesize(esp_cam_sensor_io_parl_interface, frame_size) != 0) {
         ESP_LOGE(TAG, "Failed to set frame size");
@@ -336,6 +340,8 @@ esp_err_t esp_cam_new_sensor_io_parl(const esp_cam_sensor_io_parl_config_t *conf
     if (pix_format == ESP_CAM_IO_PARL_PIXFORMAT_JPEG) {
         esp_cam_sensor_io_parl_interface->set_quality(esp_cam_sensor_io_parl_interface, config->jpeg_quality);
     }
+    
+    esp_cam_sensor_io_parl_interface->init_status(esp_cam_sensor_io_parl_interface);
 
     *ret_handle = esp_cam_sensor_io_parl_interface;
     return ESP_OK;
@@ -368,9 +374,8 @@ esp_err_t esp_cam_sensor_io_parl_get_interface(esp_cam_sensor_io_parl_handle_t *
 
 esp_err_t esp_cam_sensor_io_parl_frame_info(int *out_width, int *out_height) {
     ESP_RETURN_ON_FALSE(esp_cam_sensor_io_parl_interface != NULL, ESP_ERR_NOT_FOUND, TAG, "Camera not detected");
-    esp_cam_sensor_io_parl_resolution_info_t resolution = esp_cam_sensor_io_parl_resolution[esp_cam_sensor_io_parl_interface->status.framesize];
-    *out_width = resolution.width;
-    *out_height = resolution.height;
+    *out_width = esp_cam_sensor_io_parl_interface->status.width;
+    *out_height = esp_cam_sensor_io_parl_interface->status.height;
     return ESP_OK;
 }
 
@@ -394,8 +399,8 @@ esp_err_t esp_cam_sensor_io_parl_connect(esp_cam_io_parl_handle_t esp_cam_io_par
     }
 
 #if CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_AUTO
-    esp_cam_sensor_io_parl_resolution_info_t resolution = esp_cam_sensor_io_parl_resolution[esp_cam_sensor_io_parl_interface->status.framesize];
-    uint32_t alloc_size = esp_cam_sensor_io_parl_interface->pixformat != ESP_CAM_IO_PARL_PIXFORMAT_JPEG ? resolution.width * resolution.height * esp_cam_sensor_io_parl_interface->pixformat_bpp : (resolution.width * resolution.height * CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_MUL / CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_DIV + CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_PADDING);
+    uint16_t w = esp_cam_sensor_io_parl_interface->status.width, h = esp_cam_sensor_io_parl_interface->status.height;
+    uint32_t alloc_size = esp_cam_sensor_io_parl_interface->pixformat != ESP_CAM_IO_PARL_PIXFORMAT_JPEG ? w * h * esp_cam_sensor_io_parl_interface->pixformat_bpp : (w * h * CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_MUL / CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_DIV + CONFIG_ESP_CAM_IO_PARL_FRAME_SIZE_PADDING);
     esp_cam_io_parl_set_alloc_size(esp_cam_sensor_io_parl_interface->dvp_interface, alloc_size, esp_cam_sensor_io_parl_interface->dvp_interface->alloc_heap_caps);
 #endif
 
